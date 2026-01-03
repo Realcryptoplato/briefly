@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Briefly 3000</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8" x-data="dashboard()">
+        <!-- Header -->
+        <div class="mb-8">
+            <h1 class="text-4xl font-bold text-cyan-400">Briefly 3000</h1>
+            <p class="text-gray-400 mt-2">The year 3000 called — they want their executive assistant back.</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Sources Panel -->
+            <div class="lg:col-span-1 space-y-6">
+                <!-- X Sources -->
+                <div class="bg-gray-800 rounded-lg p-6">
+                    <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                        <span class="text-2xl">𝕏</span> X Sources
+                        <span class="text-sm text-gray-500 font-normal">(<span x-text="sources.x?.length || 0"></span>)</span>
+                    </h2>
+
+                    <form @submit.prevent="addSource('x')" class="mb-4">
+                        <div class="flex gap-2">
+                            <input
+                                type="text"
+                                x-model="newXSource"
+                                placeholder="@username"
+                                class="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-cyan-500"
+                            >
+                            <button type="submit" :disabled="loading" class="bg-cyan-600 hover:bg-cyan-500 px-4 py-2 rounded text-sm font-medium disabled:opacity-50">
+                                Add
+                            </button>
+                        </div>
+                        <p x-show="xError" x-text="xError" class="text-red-400 text-sm mt-2"></p>
+                    </form>
+
+                    <div class="space-y-2 max-h-48 overflow-y-auto">
+                        <template x-for="source in sources.x" :key="source.identifier">
+                            <div class="flex items-center justify-between bg-gray-700 rounded px-3 py-2 text-sm">
+                                <div>
+                                    <span class="font-medium">@<span x-text="source.identifier"></span></span>
+                                    <span x-show="source.cached" class="text-green-400 text-xs ml-1">✓</span>
+                                </div>
+                                <button @click="removeSource('x', source.identifier)" class="text-red-400 hover:text-red-300">✕</button>
+                            </div>
+                        </template>
+                        <p x-show="!sources.x?.length" class="text-gray-500 text-sm">No X sources yet</p>
+                    </div>
+                </div>
+
+                <!-- YouTube Sources -->
+                <div class="bg-gray-800 rounded-lg p-6">
+                    <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                        <span class="text-2xl text-red-500">▶</span> YouTube
+                        <span class="text-sm text-gray-500 font-normal">(<span x-text="sources.youtube?.length || 0"></span>)</span>
+                    </h2>
+
+                    <!-- Import Subscriptions -->
+                    <div class="mb-4 p-3 bg-gray-700/50 rounded">
+                        <p class="text-sm text-gray-400 mb-2">Import from your YouTube channel:</p>
+                        <form @submit.prevent="importYouTube" class="flex gap-2">
+                            <input
+                                type="text"
+                                x-model="youtubeChannel"
+                                placeholder="@yourchannel"
+                                class="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-red-500"
+                            >
+                            <button type="submit" :disabled="importingYT" class="bg-red-600 hover:bg-red-500 px-3 py-2 rounded text-sm font-medium disabled:opacity-50">
+                                <span x-show="importingYT" class="animate-spin">⟳</span>
+                                <span x-show="!importingYT">Import</span>
+                            </button>
+                        </form>
+                        <p x-show="ytImportResult" x-text="ytImportResult" class="text-sm mt-2" :class="ytImportError ? 'text-red-400' : 'text-green-400'"></p>
+                    </div>
+
+                    <!-- Manual Add -->
+                    <form @submit.prevent="addSource('youtube')" class="mb-4">
+                        <div class="flex gap-2">
+                            <input
+                                type="text"
+                                x-model="newYTSource"
+                                placeholder="@channel or channel ID"
+                                class="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-red-500"
+                            >
+                            <button type="submit" :disabled="loading" class="bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded text-sm font-medium disabled:opacity-50">
+                                Add
+                            </button>
+                        </div>
+                        <p x-show="ytError" x-text="ytError" class="text-red-400 text-sm mt-2"></p>
+                    </form>
+
+                    <div class="space-y-2 max-h-48 overflow-y-auto">
+                        <template x-for="source in sources.youtube" :key="source.identifier">
+                            <div class="flex items-center justify-between bg-gray-700 rounded px-3 py-2 text-sm">
+                                <div class="truncate flex-1 mr-2">
+                                    <span class="font-medium" x-text="source.name || source.identifier"></span>
+                                    <span x-show="source.cached" class="text-green-400 text-xs ml-1">✓</span>
+                                </div>
+                                <button @click="removeSource('youtube', source.identifier)" class="text-red-400 hover:text-red-300 flex-shrink-0">✕</button>
+                            </div>
+                        </template>
+                        <p x-show="!sources.youtube?.length" class="text-gray-500 text-sm">No YouTube sources yet</p>
+                    </div>
+                </div>
+
+                <!-- Cache Stats -->
+                <div class="bg-gray-800 rounded-lg p-4">
+                    <h3 class="text-sm font-medium text-gray-400 mb-2">Cache</h3>
+                    <p class="text-sm"><span x-text="cacheStats.cached_users || 0"></span> items cached</p>
+                </div>
+
+                <!-- Transcript Processing -->
+                <div class="bg-gray-800 rounded-lg p-4">
+                    <h3 class="text-sm font-medium text-gray-400 mb-2">Transcripts</h3>
+                    <div class="text-sm space-y-2">
+                        <p><span x-text="transcriptStats.pending_summarization || 0"></span> pending summarization</p>
+                        <button
+                            @click="processTranscripts"
+                            :disabled="processingTranscripts"
+                            x-show="transcriptStats.pending_summarization > 0"
+                            class="w-full bg-purple-600 hover:bg-purple-500 px-3 py-2 rounded text-xs font-medium disabled:opacity-50"
+                        >
+                            <span x-show="processingTranscripts" class="animate-spin inline-block mr-1">&#8635;</span>
+                            <span x-text="processingTranscripts ? 'Processing...' : 'Summarize Transcripts'"></span>
+                        </button>
+                        <p x-show="transcriptResult" x-text="transcriptResult" class="text-green-400 text-xs"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Briefing Panel -->
+            <div class="lg:col-span-2">
+                <div class="bg-gray-800 rounded-lg p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-semibold flex items-center gap-2">
+                            <span class="text-2xl">📋</span> Latest Briefing
+                        </h2>
+                        <button
+                            @click="generateBriefing"
+                            :disabled="generating"
+                            class="bg-cyan-600 hover:bg-cyan-500 px-4 py-2 rounded text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+                        >
+                            <span x-show="generating" class="animate-spin">⟳</span>
+                            <span x-text="generating ? 'Generating...' : 'Generate New'"></span>
+                        </button>
+                    </div>
+
+                    <!-- Status -->
+                    <div x-show="jobStatus" class="mb-4 p-3 rounded"
+                         :class="jobStatus === 'completed' ? 'bg-green-900/30 text-green-300' : jobStatus === 'failed' ? 'bg-red-900/30 text-red-300' : 'bg-yellow-900/30 text-yellow-300'">
+                        <div class="flex items-center gap-2">
+                            <span x-show="jobStatus === 'processing'" class="animate-spin">⟳</span>
+                            <span x-text="jobStatus === 'processing' ? jobStep : 'Status: ' + jobStatus"></span>
+                        </div>
+                        <span x-show="jobError" x-text="jobError" class="text-red-400 text-sm block mt-1"></span>
+                    </div>
+
+                    <!-- Briefing Content -->
+                    <template x-if="latestBriefing">
+                        <div>
+                            <div class="text-sm text-gray-400 mb-4 flex flex-wrap gap-4">
+                                <span>Generated: <span x-text="new Date(latestBriefing.generated_at).toLocaleString()"></span></span>
+                                <span>X: <span x-text="latestBriefing.stats?.items_fetched?.x || 0"></span></span>
+                                <span>YouTube: <span x-text="latestBriefing.stats?.items_fetched?.youtube || 0"></span></span>
+                                <span x-show="latestBriefing.stats?.transcripts_fetched" class="text-green-400">
+                                    📝 <span x-text="latestBriefing.stats?.transcripts_fetched || 0"></span> transcripts
+                                </span>
+                            </div>
+
+                            <div class="bg-gray-700/50 rounded p-4 whitespace-pre-wrap text-sm leading-relaxed mb-6" x-text="latestBriefing.summary"></div>
+
+                            <!-- Top Items -->
+                            <template x-if="latestBriefing.items?.length">
+                                <div>
+                                    <h3 class="text-lg font-medium mb-3">Top Posts</h3>
+                                    <div class="space-y-3">
+                                        <template x-for="item in latestBriefing.items.slice(0, 8)" :key="item.platform_id">
+                                            <div class="bg-gray-700/50 rounded p-3">
+                                                <div class="flex items-start justify-between">
+                                                    <div class="flex items-center gap-2">
+                                                        <span x-show="item.platform === 'x'" class="text-lg">𝕏</span>
+                                                        <span x-show="item.platform === 'youtube'" class="text-lg text-red-500">▶</span>
+                                                        <span class="font-medium text-cyan-400" x-text="item.source_name || item.source"></span>
+                                                    </div>
+                                                    <div class="text-xs text-gray-400">
+                                                        <template x-if="item.platform === 'x'">
+                                                            <span>❤️ <span x-text="item.metrics?.like_count || 0"></span></span>
+                                                        </template>
+                                                        <template x-if="item.platform === 'youtube'">
+                                                            <span>
+                                                                <span x-show="item.metrics?.has_transcript" class="text-green-400 mr-1" title="Transcript available">📝</span>
+                                                                👁 <span x-text="(item.metrics?.view_count || 0).toLocaleString()"></span>
+                                                            </span>
+                                                        </template>
+                                                    </div>
+                                                </div>
+                                                <p class="mt-2 text-sm line-clamp-3" x-text="item.content"></p>
+                                                <a :href="item.url" target="_blank" class="text-cyan-400 text-xs hover:underline mt-1 inline-block">
+                                                    View <span x-text="item.platform === 'youtube' ? 'on YouTube' : 'on X'"></span> →
+                                                </a>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+
+                    <template x-if="!latestBriefing">
+                        <div class="text-gray-500 text-center py-12">
+                            <p class="text-4xl mb-4">🤖</p>
+                            <p>No briefings yet. Add sources and generate!</p>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-8 text-center text-gray-500 text-sm">
+            Briefly 3000 • Powered by Grok 4.1
+        </div>
+    </div>
+
+    <script>
+        function dashboard() {
+            return {
+                sources: { x: [], youtube: [] },
+                cacheStats: {},
+                newXSource: '',
+                newYTSource: '',
+                youtubeChannel: '',
+                xError: '',
+                ytError: '',
+                ytImportResult: '',
+                ytImportError: false,
+                loading: false,
+                importingYT: false,
+                generating: false,
+                jobStatus: null,
+                jobStep: '',
+                jobError: null,
+                latestBriefing: null,
+                transcriptStats: {},
+                processingTranscripts: false,
+                transcriptResult: '',
+
+                async init() {
+                    await this.loadSources();
+                    await this.loadCacheStats();
+                    await this.loadLatestBriefing();
+                    await this.loadTranscriptStats();
+                },
+
+                async loadSources() {
+                    try {
+                        const resp = await fetch('/api/sources');
+                        this.sources = await resp.json();
+                    } catch (e) { console.error(e); }
+                },
+
+                async loadCacheStats() {
+                    try {
+                        const resp = await fetch('/api/sources/cache/stats');
+                        this.cacheStats = await resp.json();
+                    } catch (e) { console.error(e); }
+                },
+
+                async loadLatestBriefing() {
+                    try {
+                        const resp = await fetch('/api/briefings/latest');
+                        if (resp.ok) this.latestBriefing = await resp.json();
+                    } catch (e) { console.error(e); }
+                },
+
+                async loadTranscriptStats() {
+                    try {
+                        const resp = await fetch('/api/briefings/transcripts/stats');
+                        if (resp.ok) this.transcriptStats = await resp.json();
+                    } catch (e) { console.error(e); }
+                },
+
+                async processTranscripts() {
+                    this.processingTranscripts = true;
+                    this.transcriptResult = '';
+
+                    try {
+                        const resp = await fetch('/api/briefings/transcripts/process?limit=5', {
+                            method: 'POST',
+                        });
+                        const job = await resp.json();
+
+                        if (job.status === 'no_pending') {
+                            this.transcriptResult = 'No transcripts to process';
+                            this.processingTranscripts = false;
+                            return;
+                        }
+
+                        // Poll for completion
+                        const poll = setInterval(async () => {
+                            const statusResp = await fetch(`/api/briefings/generate/${job.job_id}`);
+                            const status = await statusResp.json();
+
+                            if (status.status === 'completed') {
+                                clearInterval(poll);
+                                this.processingTranscripts = false;
+                                this.transcriptResult = `Processed ${status.processed_count} transcripts`;
+                                await this.loadTranscriptStats();
+                            } else if (status.status === 'failed') {
+                                clearInterval(poll);
+                                this.processingTranscripts = false;
+                                this.transcriptResult = 'Processing failed: ' + status.error;
+                            }
+                        }, 2000);
+                    } catch (e) {
+                        this.processingTranscripts = false;
+                        this.transcriptResult = 'Network error';
+                    }
+                },
+
+                async addSource(platform) {
+                    const identifier = platform === 'x' ? this.newXSource : this.newYTSource;
+                    if (!identifier.trim()) return;
+
+                    this.loading = true;
+                    this.xError = '';
+                    this.ytError = '';
+
+                    try {
+                        const resp = await fetch('/api/sources', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ platform, identifier: identifier.trim() })
+                        });
+
+                        if (!resp.ok) {
+                            const err = await resp.json();
+                            if (platform === 'x') this.xError = err.detail;
+                            else this.ytError = err.detail;
+                        } else {
+                            if (platform === 'x') this.newXSource = '';
+                            else this.newYTSource = '';
+                            await this.loadSources();
+                            await this.loadCacheStats();
+                        }
+                    } catch (e) {
+                        if (platform === 'x') this.xError = 'Network error';
+                        else this.ytError = 'Network error';
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+
+                async removeSource(platform, identifier) {
+                    await fetch(`/api/sources/${platform}/${identifier}`, { method: 'DELETE' });
+                    await this.loadSources();
+                },
+
+                async importYouTube() {
+                    if (!this.youtubeChannel.trim()) return;
+
+                    this.importingYT = true;
+                    this.ytImportResult = '';
+                    this.ytImportError = false;
+
+                    try {
+                        const resp = await fetch('/api/sources/youtube/import', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ channel: this.youtubeChannel.trim() })
+                        });
+
+                        const data = await resp.json();
+
+                        if (!resp.ok) {
+                            this.ytImportResult = data.detail || 'Import failed';
+                            this.ytImportError = true;
+                        } else {
+                            this.ytImportResult = `Imported ${data.new_sources_added} new channels from ${data.channel}`;
+                            this.youtubeChannel = '';
+                            await this.loadSources();
+                            await this.loadCacheStats();
+                        }
+                    } catch (e) {
+                        this.ytImportResult = 'Network error';
+                        this.ytImportError = true;
+                    } finally {
+                        this.importingYT = false;
+                    }
+                },
+
+                async generateBriefing() {
+                    this.generating = true;
+                    this.jobStatus = 'processing';
+                    this.jobError = null;
+
+                    try {
+                        const resp = await fetch('/api/briefings/generate', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ hours_back: 72 })
+                        });
+
+                        const job = await resp.json();
+
+                        const poll = setInterval(async () => {
+                            const statusResp = await fetch(`/api/briefings/generate/${job.job_id}`);
+                            const status = await statusResp.json();
+                            this.jobStatus = status.status;
+                            this.jobStep = status.step || '';
+
+                            if (status.status === 'completed') {
+                                clearInterval(poll);
+                                this.generating = false;
+                                await this.loadLatestBriefing();
+                            } else if (status.status === 'failed') {
+                                clearInterval(poll);
+                                this.generating = false;
+                                this.jobError = status.error;
+                            }
+                        }, 1000);
+                    } catch (e) {
+                        this.generating = false;
+                        this.jobStatus = 'failed';
+                        this.jobError = 'Network error';
+                    }
+                }
+            };
+        }
+    </script>
+</body>
+</html>

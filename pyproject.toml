@@ -1,0 +1,49 @@
+[project]
+name = "briefly"
+version = "0.1.0"
+description = "Briefly 3000 - AI-powered media curation and daily briefings"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "aiohttp>=3.13.2",
+    "alembic>=1.17.2",
+    "async-lru>=2.0.5",
+    "asyncpg>=0.31.0",
+    "celery>=5.6.1",
+    "fastapi>=0.128.0",
+    "google-api-python-client>=2.187.0",
+    "httpx>=0.28.1",
+    "jinja2>=3.1.6",
+    "openai>=2.14.0",
+    "pgvector>=0.4.2",
+    "pydantic>=2.12.5",
+    "pydantic-settings>=2.12.0",
+    "python-dotenv>=1.2.1",
+    "python-multipart>=0.0.21",
+    "redis>=7.1.0",
+    "sqlalchemy>=2.0.45",
+    "tweepy>=4.16.0",
+    "uvicorn[standard]>=0.40.0",
+    "youtube-transcript-api>=1.2.3",
+]
+
+[project.scripts]
+briefly = "briefly.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/briefly"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]

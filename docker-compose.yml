@@ -1,0 +1,35 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: briefly-postgres
+    environment:
+      POSTGRES_USER: briefly
+      POSTGRES_PASSWORD: briefly3000
+      POSTGRES_DB: briefly
+    ports:
+      - "5436:5432"
+    volumes:
+      - briefly_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U briefly -d briefly"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: briefly-redis
+    ports:
+      - "6382:6379"
+    volumes:
+      - briefly_redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  briefly_postgres_data:
+  briefly_redis_data:
