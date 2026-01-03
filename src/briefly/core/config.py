@@ -41,6 +41,15 @@ class Settings(BaseSettings):
     # YouTube (optional)
     youtube_api_key: str | None = None
 
+    # OpenAI (for embeddings)
+    openai_api_key: str | None = None
+    embedding_model: str = "text-embedding-3-small"
+    embedding_dimensions: int = 1536
+
+    # Chunking settings
+    chunk_size_tokens: int = 500
+    chunk_overlap_tokens: int = 50
+
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"

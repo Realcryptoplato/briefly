@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pathlib import Path
 
-from briefly.api.routes import sources, briefings, health
+from briefly.api.routes import sources, briefings, health, search
 
 app = FastAPI(
     title="Briefly 3000",
@@ -23,6 +23,7 @@ templates = Jinja2Templates(directory=str(templates_dir))
 app.include_router(health.router, tags=["Health"])
 app.include_router(sources.router, prefix="/api/sources", tags=["Sources"])
 app.include_router(briefings.router, prefix="/api/briefings", tags=["Briefings"])
+app.include_router(search.router, prefix="/api/search", tags=["Search"])
 
 
 @app.get("/", response_class=HTMLResponse)

@@ -109,10 +109,68 @@
                     </div>
                 </div>
 
+                <!-- Semantic Search -->
+                <div class="bg-gray-800 rounded-lg p-6">
+                    <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                        <span class="text-2xl">&#128269;</span> Semantic Search
+                    </h2>
+
+                    <form @submit.prevent="searchContent" class="mb-4">
+                        <input
+                            type="text"
+                            x-model="searchQuery"
+                            placeholder="What did anyone say about..."
+                            class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm mb-2 focus:outline-none focus:border-cyan-500"
+                        >
+                        <button type="submit" :disabled="searching" class="w-full bg-cyan-600 hover:bg-cyan-500 px-4 py-2 rounded text-sm font-medium disabled:opacity-50">
+                            <span x-show="searching">Searching...</span>
+                            <span x-show="!searching">Search</span>
+                        </button>
+                    </form>
+
+                    <p x-show="searchError" x-text="searchError" class="text-red-400 text-sm mb-2"></p>
+
+                    <div x-show="searchResults.length > 0" class="space-y-2 max-h-64 overflow-y-auto">
+                        <template x-for="result in searchResults" :key="result.id + '-' + result.chunk_content.substring(0, 20)">
+                            <div class="bg-gray-700 rounded p-2 text-sm">
+                                <div class="flex items-center gap-1 text-xs text-gray-400">
+                                    <span x-show="result.platform === 'x'">&#120143;</span>
+                                    <span x-show="result.platform === 'youtube'" class="text-red-500">&#9654;</span>
+                                    <span x-text="result.platform"></span>
+                                    <span>&bull;</span>
+                                    <span x-text="result.source_name || result.source_id"></span>
+                                </div>
+                                <p class="mt-1 line-clamp-2" x-text="result.chunk_content"></p>
+                                <div class="flex items-center justify-between mt-1">
+                                    <span class="text-xs text-cyan-400">
+                                        <span x-text="(result.similarity * 100).toFixed(1)"></span>% match
+                                    </span>
+                                    <a x-show="result.url" :href="result.url" target="_blank" class="text-cyan-400 text-xs hover:underline">
+                                        View &rarr;
+                                    </a>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    <p x-show="searchResults.length === 0 && !searching && searchQuery && !searchError" class="text-gray-500 text-sm">
+                        No results found
+                    </p>
+                </div>
+
                 <!-- Cache Stats -->
                 <div class="bg-gray-800 rounded-lg p-4">
                     <h3 class="text-sm font-medium text-gray-400 mb-2">Cache</h3>
                     <p class="text-sm"><span x-text="cacheStats.cached_users || 0"></span> items cached</p>
+                </div>
+
+                <!-- Vector Store Stats -->
+                <div class="bg-gray-800 rounded-lg p-4">
+                    <h3 class="text-sm font-medium text-gray-400 mb-2">Vector Store</h3>
+                    <div class="text-sm space-y-1">
+                        <p><span x-text="vectorStats.total_content_items || 0"></span> content items</p>
+                        <p><span x-text="vectorStats.total_chunks || 0"></span> chunks indexed</p>
+                    </div>
                 </div>
 
                 <!-- Transcript Processing -->
@@ -249,12 +307,18 @@
                 transcriptStats: {},
                 processingTranscripts: false,
                 transcriptResult: '',
+                searchQuery: '',
+                searchResults: [],
+                searching: false,
+                searchError: '',
+                vectorStats: {},
 
                 async init() {
                     await this.loadSources();
                     await this.loadCacheStats();
                     await this.loadLatestBriefing();
                     await this.loadTranscriptStats();
+                    await this.loadVectorStats();
                 },
 
                 async loadSources() {
@@ -283,6 +347,41 @@
                         const resp = await fetch('/api/briefings/transcripts/stats');
                         if (resp.ok) this.transcriptStats = await resp.json();
                     } catch (e) { console.error(e); }
+                },
+
+                async loadVectorStats() {
+                    try {
+                        const resp = await fetch('/api/search/stats');
+                        if (resp.ok) this.vectorStats = await resp.json();
+                    } catch (e) { console.error(e); }
+                },
+
+                async searchContent() {
+                    if (!this.searchQuery.trim()) return;
+                    this.searching = true;
+                    this.searchError = '';
+
+                    try {
+                        const resp = await fetch('/api/search', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ query: this.searchQuery, limit: 10 })
+                        });
+                        if (resp.ok) {
+                            const data = await resp.json();
+                            this.searchResults = data.results;
+                        } else {
+                            const err = await resp.json();
+                            this.searchError = err.detail || 'Search failed';
+                            this.searchResults = [];
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        this.searchError = 'Network error';
+                        this.searchResults = [];
+                    } finally {
+                        this.searching = false;
+                    }
                 },
 
                 async processTranscripts() {
