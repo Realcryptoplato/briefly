@@ -1,5 +1,7 @@
 """Database configuration and session management."""
 
+from contextlib import asynccontextmanager
+
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
@@ -50,3 +52,15 @@ async def init_db() -> None:
         # Enable pgvector extension
         await conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
         await conn.run_sync(Base.metadata.create_all)
+
+
+@asynccontextmanager
+async def get_async_session():
+    """Async context manager for database sessions."""
+    async with async_session_maker() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise

@@ -7,6 +7,7 @@ from briefly.adapters.x import XAdapter
 from briefly.adapters.youtube import YouTubeAdapter
 from briefly.adapters.base import ContentItem
 from briefly.services.summarization import SummarizationService
+from briefly.services.vectorstore import VectorStore
 from briefly.core.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -27,6 +28,7 @@ class CurationService:
         self._x_adapter = XAdapter()
         self._youtube_adapter = YouTubeAdapter()
         self._summarizer = SummarizationService()
+        self._vectorstore = VectorStore()
 
     async def create_briefing(
         self,
@@ -91,6 +93,28 @@ class CurationService:
                 "recommendations": [],
                 "stats": stats,
             }
+
+        # Store content in vector store for future semantic search
+        logger.info("Storing content in vector store...")
+        stored_count = 0
+        for item in all_items:
+            try:
+                content_id = await self._vectorstore.store_content(
+                    platform=item.platform,
+                    platform_id=item.platform_id,
+                    source_id=item.source_identifier,
+                    source_name=item.source_name,
+                    content=item.content,
+                    url=item.url,
+                    metrics=item.metrics,
+                    published_at=item.posted_at,
+                )
+                if content_id:
+                    stored_count += 1
+            except Exception as e:
+                logger.warning(f"Failed to store content in vector store: {e}")
+        stats["items_stored_vectorstore"] = stored_count
+        logger.info(f"Stored {stored_count} items in vector store")
 
         # Sort by score (already done in adapter, but ensure consistency)
         all_items.sort(key=lambda x: x.compute_score(), reverse=True)
