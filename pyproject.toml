@@ -26,6 +26,7 @@ dependencies = [
     "tweepy>=4.16.0",
     "uvicorn[standard]>=0.40.0",
     "youtube-transcript-api>=1.2.3",
+    "greenlet>=3.3.0",
 ]
 
 [project.scripts]
