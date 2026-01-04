@@ -130,3 +130,104 @@ After you generate the code, a human will need to:
    - What was implemented
    - What needs manual testing
    - Known limitations or TODOs
+
+---
+
+## Tester Agent One-Liner
+
+```
+Review the job persistence implementation on branch feature/job-persistence. Read src/briefly/services/jobs.py and tests/test_jobs.py. Create additional integration tests in tests/test_jobs_integration.py covering: (1) API endpoint tests using FastAPI TestClient for /api/briefings/jobs, /api/briefings/jobs/active, /api/briefings/jobs/{id}, (2) End-to-end job lifecycle tests (create->progress->complete and create->progress->fail), (3) Concurrent job handling tests, (4) Database migration/schema tests for both PostgreSQL and SQLite backends, (5) Edge cases: invalid job IDs, duplicate jobs, timezone handling. Use pytest fixtures, mock external dependencies. DO NOT run tests - generate code only. Output test file with clear docstrings explaining each test scenario.
+```
+
+---
+
+## Tester Agent Detailed Prompt
+
+```markdown
+# Task: Create Integration Test Suite for Job Persistence
+
+## Context
+You are reviewing the job persistence implementation on branch `feature/job-persistence`. The implementation includes:
+- `src/briefly/services/jobs.py` - JobService with PostgreSQL/SQLite backends
+- `tests/test_jobs.py` - Existing unit tests (26 tests)
+- Updated `src/briefly/api/routes/briefings.py` with new job endpoints
+
+## Your Task
+Create `tests/test_jobs_integration.py` with comprehensive integration tests.
+
+## Test Categories Required
+
+### 1. API Endpoint Tests (using FastAPI TestClient)
+- GET /api/briefings/jobs - returns list of jobs
+- GET /api/briefings/jobs/active - returns active job or null
+- GET /api/briefings/jobs/{id} - returns specific job
+- GET /api/briefings/generate/{job_id} - backward compatibility check
+- POST /api/briefings/generate - creates job and returns job_id
+
+### 2. Job Lifecycle Tests
+- Full success path: create → update_progress → complete
+- Full failure path: create → update_progress → fail
+- Progress updates accumulate correctly
+- Timestamps set at correct stages
+
+### 3. Concurrent Job Tests
+- Multiple jobs can be created
+- get_active returns most recent pending/running job
+- Completed jobs don't appear as active
+
+### 4. Backend-Specific Tests
+- SQLite: File created at correct path
+- SQLite: Schema persists across restarts
+- PostgreSQL: Connection pool management (mocked)
+- Backend selection based on DATABASE_URL
+
+### 5. Edge Cases
+- Invalid UUID job_id returns 404
+- Empty job list returns empty array
+- Job with null optional fields serializes correctly
+- Large progress dict stored/retrieved correctly
+- Unicode in error messages handled
+
+### 6. Data Integrity Tests
+- Job.to_dict() output matches expected schema
+- Datetime fields in ISO format
+- JSON fields (progress, input, output) round-trip correctly
+
+## Test File Structure
+```python
+"""Integration tests for job persistence system."""
+
+import pytest
+from fastapi.testclient import TestClient
+from unittest.mock import patch, AsyncMock
+# ... imports
+
+@pytest.fixture
+def client():
+    """FastAPI test client with initialized JobService."""
+    ...
+
+class TestJobAPIEndpoints:
+    """API endpoint integration tests."""
+    ...
+
+class TestJobLifecycle:
+    """End-to-end job lifecycle tests."""
+    ...
+
+class TestConcurrentJobs:
+    """Concurrent job handling tests."""
+    ...
+
+class TestEdgeCases:
+    """Edge case and error handling tests."""
+    ...
+```
+
+## Output Requirements
+1. Complete `tests/test_jobs_integration.py` file
+2. Clear docstrings on each test class and method
+3. Proper pytest fixtures for setup/teardown
+4. Mock external dependencies (no actual DB connections)
+5. Comments explaining any complex test logic
+```
