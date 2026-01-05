@@ -209,13 +209,36 @@
                         </button>
                     </div>
 
+                    <!-- Reconnected Banner -->
+                    <div x-show="reconnected && generating" class="mb-4 p-3 rounded bg-blue-900/30 text-blue-300">
+                        <div class="flex items-center gap-2">
+                            <span>🔗</span>
+                            <span>Reconnected to running job</span>
+                        </div>
+                    </div>
+
                     <!-- Status -->
                     <div x-show="jobStatus" class="mb-4 p-3 rounded"
                          :class="jobStatus === 'completed' ? 'bg-green-900/30 text-green-300' : jobStatus === 'failed' ? 'bg-red-900/30 text-red-300' : 'bg-yellow-900/30 text-yellow-300'">
                         <div class="flex items-center gap-2">
-                            <span x-show="jobStatus === 'processing'" class="animate-spin">⟳</span>
-                            <span x-text="jobStatus === 'processing' ? jobStep : 'Status: ' + jobStatus"></span>
+                            <span x-show="jobStatus === 'running' || jobStatus === 'pending'" class="animate-spin">⟳</span>
+                            <span x-text="(jobStatus === 'running' || jobStatus === 'pending') ? jobStep : 'Status: ' + jobStatus"></span>
                         </div>
+                        <!-- Media status from job.progress.media_status -->
+                        <template x-if="mediaStatus">
+                            <div class="mt-2 text-sm space-y-1">
+                                <template x-for="(status, platform) in mediaStatus" :key="platform">
+                                    <div class="flex items-center gap-2">
+                                        <span x-text="platform === 'x' ? '𝕏' : platform === 'youtube' ? '▶' : platform === 'podcasts' ? '🎙️' : '📦'"></span>
+                                        <span x-text="platform"></span>
+                                        <span class="text-gray-400">—</span>
+                                        <span x-text="status.status"></span>
+                                        <span x-show="status.count" class="text-cyan-400">(<span x-text="status.count"></span>)</span>
+                                        <span x-show="status.current_podcast" class="text-gray-400 text-xs" x-text="status.current_podcast"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
                         <span x-show="jobError" x-text="jobError" class="text-red-400 text-sm block mt-1"></span>
                     </div>
 
@@ -303,6 +326,10 @@
                 jobStatus: null,
                 jobStep: '',
                 jobError: null,
+                jobId: null,
+                reconnected: false,
+                mediaStatus: null,
+                pollInterval: null,
                 latestBriefing: null,
                 transcriptStats: {},
                 processingTranscripts: false,
@@ -319,6 +346,25 @@
                     await this.loadLatestBriefing();
                     await this.loadTranscriptStats();
                     await this.loadVectorStats();
+                    await this.checkActiveJob();
+                },
+
+                async checkActiveJob() {
+                    try {
+                        const resp = await fetch('/api/jobs/active');
+                        if (resp.ok) {
+                            const activeJob = await resp.json();
+                            this.jobId = activeJob.id;
+                            this.jobStatus = activeJob.status;
+                            this.jobStep = activeJob.progress?.step || '';
+                            this.reconnected = true;
+                            this.generating = true;
+                            this.startPolling();
+                        }
+                    } catch (e) {
+                        // No active job or error, continue normally
+                        console.log('No active job to reconnect to');
+                    }
                 },
 
                 async loadSources() {
@@ -495,39 +541,61 @@
 
                 async generateBriefing() {
                     this.generating = true;
-                    this.jobStatus = 'processing';
+                    this.jobStatus = 'pending';
                     this.jobError = null;
+                    this.reconnected = false;
+                    this.mediaStatus = null;
 
                     try {
-                        const resp = await fetch('/api/briefings/generate', {
+                        const resp = await fetch('/api/jobs', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ hours_back: 72 })
+                            body: JSON.stringify({
+                                type: 'briefing',
+                                params: { hours_back: 72 }
+                            })
                         });
 
                         const job = await resp.json();
-
-                        const poll = setInterval(async () => {
-                            const statusResp = await fetch(`/api/briefings/generate/${job.job_id}`);
-                            const status = await statusResp.json();
-                            this.jobStatus = status.status;
-                            this.jobStep = status.step || '';
-
-                            if (status.status === 'completed') {
-                                clearInterval(poll);
-                                this.generating = false;
-                                await this.loadLatestBriefing();
-                            } else if (status.status === 'failed') {
-                                clearInterval(poll);
-                                this.generating = false;
-                                this.jobError = status.error;
-                            }
-                        }, 1000);
+                        this.jobId = job.job_id;
+                        this.startPolling();
                     } catch (e) {
                         this.generating = false;
                         this.jobStatus = 'failed';
                         this.jobError = 'Network error';
                     }
+                },
+
+                startPolling() {
+                    if (this.pollInterval) {
+                        clearInterval(this.pollInterval);
+                    }
+
+                    this.pollInterval = setInterval(async () => {
+                        try {
+                            const statusResp = await fetch(`/api/jobs/${this.jobId}`);
+                            const status = await statusResp.json();
+                            this.jobStatus = status.status;
+                            this.jobStep = status.progress?.step || '';
+                            this.mediaStatus = status.progress?.media_status || null;
+
+                            if (status.status === 'completed') {
+                                clearInterval(this.pollInterval);
+                                this.pollInterval = null;
+                                this.generating = false;
+                                this.reconnected = false;
+                                await this.loadLatestBriefing();
+                            } else if (status.status === 'failed') {
+                                clearInterval(this.pollInterval);
+                                this.pollInterval = null;
+                                this.generating = false;
+                                this.reconnected = false;
+                                this.jobError = status.error;
+                            }
+                        } catch (e) {
+                            console.error('Polling error:', e);
+                        }
+                    }, 1500);
                 }
             };
         }
