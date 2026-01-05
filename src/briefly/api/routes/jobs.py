@@ -159,7 +159,7 @@ async def create_job(
             from pathlib import Path
 
             try:
-                await service.start(job.id)
+                # update_progress also sets status to 'running' and started_at
                 await service.update_progress(job.id, {"step": "Loading sources..."})
 
                 # Load sources from cache
