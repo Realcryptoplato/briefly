@@ -372,6 +372,9 @@ class YouTubeAdapter(BaseAdapter):
                                 "has_summary": cached_summary is not None,
                             },
                             posted_at=published_at,
+                            # Rich UI fields
+                            thumbnail_url=f"https://img.youtube.com/vi/{video_id}/mqdefault.jpg",
+                            title=snippet['title'],
                         )
                     )
 
