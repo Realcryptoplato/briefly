@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 
 from briefly.core.config import get_settings
 from briefly.services.jobs import JobService, Job, JobStatus, get_job_service
+from briefly.services.curation import CurationService
 
 
 router = APIRouter()
@@ -150,6 +151,74 @@ async def create_job(
                 await service.fail(job.id, f"Failed to trigger n8n: {str(e)}")
 
         background_tasks.add_task(trigger_n8n)
+    else:
+        # Run local job
+        async def run_local_job():
+            import json
+            import traceback
+            from pathlib import Path
+
+            try:
+                await service.start(job.id)
+                await service.update_progress(job.id, {"step": "Loading sources..."})
+
+                # Load sources from cache
+                sources_file = Path(__file__).parent.parent.parent.parent.parent / ".cache" / "sources.json"
+                sources = {}
+                if sources_file.exists():
+                    sources = json.loads(sources_file.read_text())
+
+                x_sources = sources.get("x", [])
+                youtube_sources = sources.get("youtube", [])
+
+                if not x_sources and not youtube_sources:
+                    await service.fail(job.id, "No sources configured. Add sources first.")
+                    return
+
+                await service.update_progress(job.id, {
+                    "step": f"Fetching from {len(x_sources)} X + {len(youtube_sources)} YouTube sources...",
+                    "media_status": {
+                        "x": {"status": "fetching", "count": 0, "sources": len(x_sources)},
+                        "youtube": {"status": "fetching", "count": 0, "sources": len(youtube_sources)},
+                    }
+                })
+
+                # Run the actual curation
+                curation = CurationService()
+                hours_back = req.params.get("hours_back", 24)
+
+                result = await curation.create_briefing(
+                    x_sources=x_sources if x_sources else None,
+                    youtube_sources=youtube_sources if youtube_sources else None,
+                    hours_back=hours_back,
+                )
+
+                await service.update_progress(job.id, {
+                    "step": "Saving briefing...",
+                    "media_status": {
+                        "x": {"status": "complete", "count": result.get("stats", {}).get("items_fetched", {}).get("x", 0)},
+                        "youtube": {"status": "complete", "count": result.get("stats", {}).get("items_fetched", {}).get("youtube", 0)},
+                    }
+                })
+
+                # Save briefing to cache
+                briefings_file = Path(__file__).parent.parent.parent.parent.parent / ".cache" / "briefings.json"
+                briefings = []
+                if briefings_file.exists():
+                    briefings = json.loads(briefings_file.read_text())
+
+                result["generated_at"] = datetime.now().isoformat()
+                result["job_id"] = job.id
+                briefings.insert(0, result)
+                briefings = briefings[:20]
+                briefings_file.write_text(json.dumps(briefings, indent=2, default=str))
+
+                await service.complete(job.id, {"result": result})
+
+            except Exception as e:
+                await service.fail(job.id, f"{str(e)}\n{traceback.format_exc()}")
+
+        background_tasks.add_task(run_local_job)
 
     return CreateJobResponse(
         job_id=job.id,
