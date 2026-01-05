@@ -1,5 +1,5 @@
 {
-  "name": "Adapter - X/Twitter",
+  "name": "BRIEFLY | Adapter - X (Twitter) v1.0",
   "nodes": [
     {
       "parameters": {
@@ -16,7 +16,10 @@
       "name": "Cron Trigger",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [200, 400]
+      "position": [
+        200,
+        400
+      ]
     },
     {
       "parameters": {},
@@ -24,7 +27,10 @@
       "name": "Execute Workflow Trigger",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1,
-      "position": [200, 600]
+      "position": [
+        200,
+        600
+      ]
     },
     {
       "parameters": {
@@ -36,7 +42,10 @@
       "name": "Merge Triggers",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
-      "position": [420, 500]
+      "position": [
+        420,
+        500
+      ]
     },
     {
       "parameters": {
@@ -86,7 +95,10 @@
       "name": "Initialize",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [620, 500]
+      "position": [
+        620,
+        500
+      ]
     },
     {
       "parameters": {
@@ -119,7 +131,10 @@
       "name": "Fetch Sources",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [840, 500],
+      "position": [
+        840,
+        500
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "briefly-api-auth",
@@ -154,7 +169,10 @@
       "name": "Has Sources?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1060, 500]
+      "position": [
+        1060,
+        500
+      ]
     },
     {
       "parameters": {
@@ -164,7 +182,10 @@
       "name": "Check Rate Limits",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1300, 400]
+      "position": [
+        1300,
+        400
+      ]
     },
     {
       "parameters": {
@@ -193,7 +214,10 @@
       "name": "Can Proceed?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1520, 400]
+      "position": [
+        1520,
+        400
+      ]
     },
     {
       "parameters": {
@@ -204,7 +228,10 @@
       "name": "Split Sources",
       "type": "n8n-nodes-base.splitOut",
       "typeVersion": 1,
-      "position": [1780, 300]
+      "position": [
+        1780,
+        300
+      ]
     },
     {
       "parameters": {
@@ -215,7 +242,10 @@
       "name": "Batch Sources",
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
-      "position": [2000, 300]
+      "position": [
+        2000,
+        300
+      ]
     },
     {
       "parameters": {
@@ -244,7 +274,10 @@
       "name": "Lookup User ID",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2220, 300],
+      "position": [
+        2220,
+        300
+      ],
       "credentials": {
         "oAuth2Api": {
           "id": "x-api-oauth",
@@ -280,7 +313,10 @@
       "name": "User Found?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [2440, 300]
+      "position": [
+        2440,
+        300
+      ]
     },
     {
       "parameters": {
@@ -318,7 +354,10 @@
       "name": "Fetch Tweets",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2680, 200],
+      "position": [
+        2680,
+        200
+      ],
       "credentials": {
         "oAuth2Api": {
           "id": "x-api-oauth",
@@ -335,7 +374,10 @@
       "name": "Update Rate Limits",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2920, 200]
+      "position": [
+        2920,
+        200
+      ]
     },
     {
       "parameters": {
@@ -345,7 +387,10 @@
       "name": "Transform to ContentItem",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3140, 200]
+      "position": [
+        3140,
+        200
+      ]
     },
     {
       "parameters": {
@@ -377,7 +422,10 @@
       "name": "User Not Found",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [2680, 400]
+      "position": [
+        2680,
+        400
+      ]
     },
     {
       "parameters": {
@@ -389,7 +437,10 @@
       "name": "Merge Tweets",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
-      "position": [3360, 300]
+      "position": [
+        3360,
+        300
+      ]
     },
     {
       "parameters": {
@@ -399,7 +450,10 @@
       "name": "Aggregate All Tweets",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3580, 300]
+      "position": [
+        3580,
+        300
+      ]
     },
     {
       "parameters": {
@@ -428,7 +482,10 @@
       "name": "Has Items?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [3800, 300]
+      "position": [
+        3800,
+        300
+      ]
     },
     {
       "parameters": {
@@ -451,7 +508,10 @@
       "name": "Ingest Content",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [4040, 200],
+      "position": [
+        4040,
+        200
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "briefly-api-auth",
@@ -483,7 +543,10 @@
       "name": "No Items to Ingest",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [4040, 400]
+      "position": [
+        4040,
+        400
+      ]
     },
     {
       "parameters": {
@@ -495,7 +558,10 @@
       "name": "Merge Final",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
-      "position": [4280, 300]
+      "position": [
+        4280,
+        300
+      ]
     },
     {
       "parameters": {
@@ -525,7 +591,10 @@
       "name": "Report Progress",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
-      "position": [4500, 300]
+      "position": [
+        4500,
+        300
+      ]
     },
     {
       "parameters": {
@@ -575,7 +644,10 @@
       "name": "Set Output",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [4720, 300]
+      "position": [
+        4720,
+        300
+      ]
     },
     {
       "parameters": {
@@ -637,7 +709,10 @@
       "name": "Rate Limited",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [1780, 500]
+      "position": [
+        1780,
+        500
+      ]
     },
     {
       "parameters": {
@@ -687,7 +762,10 @@
       "name": "No Sources",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [1300, 600]
+      "position": [
+        1300,
+        600
+      ]
     },
     {
       "parameters": {
@@ -715,7 +793,10 @@
       "name": "Report Empty Progress",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
-      "position": [1520, 600]
+      "position": [
+        1520,
+        600
+      ]
     }
   ],
   "connections": {
@@ -1033,8 +1114,16 @@
     "global": {
       "rateLimits": {
         "credentials": [
-          {"id": "token_1", "remaining": 100, "reset_at": null},
-          {"id": "token_2", "remaining": 100, "reset_at": null}
+          {
+            "id": "token_1",
+            "remaining": 100,
+            "reset_at": null
+          },
+          {
+            "id": "token_2",
+            "remaining": 100,
+            "reset_at": null
+          }
         ],
         "last_updated": null
       }
@@ -1059,6 +1148,12 @@
     {
       "id": "briefly",
       "name": "briefly"
+    },
+    {
+      "name": "briefly"
+    },
+    {
+      "name": "v1.0"
     }
   ]
 }

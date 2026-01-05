@@ -1,5 +1,5 @@
 {
-  "name": "Adapter - Podcast (Taddy)",
+  "name": "BRIEFLY | Adapter - Podcast (Taddy) v1.0",
   "nodes": [
     {
       "parameters": {
@@ -16,7 +16,10 @@
       "name": "Cron Trigger",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [200, 400]
+      "position": [
+        200,
+        400
+      ]
     },
     {
       "parameters": {},
@@ -24,7 +27,10 @@
       "name": "Execute Workflow Trigger",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1,
-      "position": [200, 600]
+      "position": [
+        200,
+        600
+      ]
     },
     {
       "parameters": {
@@ -36,7 +42,10 @@
       "name": "Merge Triggers",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
-      "position": [420, 500]
+      "position": [
+        420,
+        500
+      ]
     },
     {
       "parameters": {
@@ -86,7 +95,10 @@
       "name": "Initialize",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [620, 500]
+      "position": [
+        620,
+        500
+      ]
     },
     {
       "parameters": {
@@ -119,7 +131,10 @@
       "name": "Fetch Sources",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [840, 500],
+      "position": [
+        840,
+        500
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "briefly-api-auth",
@@ -154,7 +169,10 @@
       "name": "Has Sources?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1060, 500]
+      "position": [
+        1060,
+        500
+      ]
     },
     {
       "parameters": {
@@ -165,7 +183,10 @@
       "name": "Split Sources",
       "type": "n8n-nodes-base.splitOut",
       "typeVersion": 1,
-      "position": [1300, 400]
+      "position": [
+        1300,
+        400
+      ]
     },
     {
       "parameters": {
@@ -176,7 +197,10 @@
       "name": "Batch Sources",
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
-      "position": [1520, 400]
+      "position": [
+        1520,
+        400
+      ]
     },
     {
       "parameters": {
@@ -212,7 +236,10 @@
       "name": "Query Taddy API",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1740, 400],
+      "position": [
+        1740,
+        400
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "taddy-api-key",
@@ -248,7 +275,10 @@
       "name": "Podcast Found?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1960, 400]
+      "position": [
+        1960,
+        400
+      ]
     },
     {
       "parameters": {
@@ -258,7 +288,10 @@
       "name": "Transform Episodes",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2200, 300]
+      "position": [
+        2200,
+        300
+      ]
     },
     {
       "parameters": {
@@ -287,7 +320,10 @@
       "name": "Needs Transcription?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [2420, 300]
+      "position": [
+        2420,
+        300
+      ]
     },
     {
       "parameters": {
@@ -297,7 +333,10 @@
       "name": "Queue Transcription",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2660, 200]
+      "position": [
+        2660,
+        200
+      ]
     },
     {
       "parameters": {
@@ -320,7 +359,10 @@
       "name": "Submit Transcription Jobs",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2900, 200],
+      "position": [
+        2900,
+        200
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "briefly-api-auth",
@@ -354,7 +396,10 @@
       "name": "Skip Transcription",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [2660, 400]
+      "position": [
+        2660,
+        400
+      ]
     },
     {
       "parameters": {
@@ -386,7 +431,10 @@
       "name": "Podcast Not Found",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [2200, 500]
+      "position": [
+        2200,
+        500
+      ]
     },
     {
       "parameters": {
@@ -398,7 +446,10 @@
       "name": "Merge Episodes",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
-      "position": [3140, 400]
+      "position": [
+        3140,
+        400
+      ]
     },
     {
       "parameters": {
@@ -408,7 +459,10 @@
       "name": "Aggregate All Episodes",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3360, 400]
+      "position": [
+        3360,
+        400
+      ]
     },
     {
       "parameters": {
@@ -437,7 +491,10 @@
       "name": "Has Items?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [3580, 400]
+      "position": [
+        3580,
+        400
+      ]
     },
     {
       "parameters": {
@@ -460,7 +517,10 @@
       "name": "Ingest Content",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [3820, 300],
+      "position": [
+        3820,
+        300
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "briefly-api-auth",
@@ -492,7 +552,10 @@
       "name": "No Items to Ingest",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [3820, 500]
+      "position": [
+        3820,
+        500
+      ]
     },
     {
       "parameters": {
@@ -504,7 +567,10 @@
       "name": "Merge Final",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
-      "position": [4060, 400]
+      "position": [
+        4060,
+        400
+      ]
     },
     {
       "parameters": {
@@ -534,7 +600,10 @@
       "name": "Report Progress",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
-      "position": [4280, 400]
+      "position": [
+        4280,
+        400
+      ]
     },
     {
       "parameters": {
@@ -590,7 +659,10 @@
       "name": "Set Output",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [4500, 400]
+      "position": [
+        4500,
+        400
+      ]
     },
     {
       "parameters": {
@@ -640,7 +712,10 @@
       "name": "No Sources",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [1300, 600]
+      "position": [
+        1300,
+        600
+      ]
     },
     {
       "parameters": {
@@ -668,7 +743,10 @@
       "name": "Report Empty Progress",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
-      "position": [1520, 600]
+      "position": [
+        1520,
+        600
+      ]
     }
   ],
   "connections": {
@@ -1002,6 +1080,9 @@
     {
       "id": "briefly",
       "name": "briefly"
+    },
+    {
+      "name": "v1.0"
     }
   ]
 }

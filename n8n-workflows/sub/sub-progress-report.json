@@ -1,5 +1,5 @@
 {
-  "name": "Sub - Progress Report",
+  "name": "BRIEFLY | Sub - Progress Report v1.0",
   "nodes": [
     {
       "parameters": {},
@@ -7,7 +7,10 @@
       "name": "Execute Workflow Trigger",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1,
-      "position": [250, 300]
+      "position": [
+        250,
+        300
+      ]
     },
     {
       "parameters": {
@@ -41,7 +44,10 @@
       "name": "POST Progress to API",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [500, 300],
+      "position": [
+        500,
+        300
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "briefly-api-auth",
@@ -76,7 +82,10 @@
       "name": "Check If Error",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [750, 300]
+      "position": [
+        750,
+        300
+      ]
     },
     {
       "parameters": {
@@ -114,7 +123,10 @@
       "name": "Set Success Output",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [1000, 200]
+      "position": [
+        1000,
+        200
+      ]
     },
     {
       "parameters": {
@@ -158,7 +170,10 @@
       "name": "Set Error Output",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [1000, 400]
+      "position": [
+        1000,
+        400
+      ]
     }
   ],
   "connections": {
@@ -222,6 +237,9 @@
     {
       "id": "briefly",
       "name": "briefly"
+    },
+    {
+      "name": "v1.0"
     }
   ]
 }

@@ -1,5 +1,5 @@
 {
-  "name": "Adapter - YouTube",
+  "name": "BRIEFLY | Adapter - YouTube v1.0",
   "nodes": [
     {
       "parameters": {
@@ -16,7 +16,10 @@
       "name": "Cron Trigger",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
-      "position": [200, 400]
+      "position": [
+        200,
+        400
+      ]
     },
     {
       "parameters": {},
@@ -24,7 +27,10 @@
       "name": "Execute Workflow Trigger",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1,
-      "position": [200, 600]
+      "position": [
+        200,
+        600
+      ]
     },
     {
       "parameters": {
@@ -36,7 +42,10 @@
       "name": "Merge Triggers",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
-      "position": [420, 500]
+      "position": [
+        420,
+        500
+      ]
     },
     {
       "parameters": {
@@ -86,7 +95,10 @@
       "name": "Initialize",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [620, 500]
+      "position": [
+        620,
+        500
+      ]
     },
     {
       "parameters": {
@@ -119,7 +131,10 @@
       "name": "Fetch Sources",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [840, 500],
+      "position": [
+        840,
+        500
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "briefly-api-auth",
@@ -154,7 +169,10 @@
       "name": "Has Sources?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1060, 500]
+      "position": [
+        1060,
+        500
+      ]
     },
     {
       "parameters": {
@@ -165,7 +183,10 @@
       "name": "Split Sources",
       "type": "n8n-nodes-base.splitOut",
       "typeVersion": 1,
-      "position": [1300, 400]
+      "position": [
+        1300,
+        400
+      ]
     },
     {
       "parameters": {
@@ -176,7 +197,10 @@
       "name": "Batch Sources",
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 3,
-      "position": [1520, 400]
+      "position": [
+        1520,
+        400
+      ]
     },
     {
       "parameters": {
@@ -209,7 +233,10 @@
       "name": "Get Channel Info",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1740, 400],
+      "position": [
+        1740,
+        400
+      ],
       "credentials": {
         "httpQueryAuth": {
           "id": "youtube-api-key",
@@ -245,7 +272,10 @@
       "name": "Channel Found?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [1960, 400]
+      "position": [
+        1960,
+        400
+      ]
     },
     {
       "parameters": {
@@ -282,7 +312,10 @@
       "name": "Get Playlist Items",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2200, 300],
+      "position": [
+        2200,
+        300
+      ],
       "credentials": {
         "httpQueryAuth": {
           "id": "youtube-api-key",
@@ -299,7 +332,10 @@
       "name": "Extract Recent Videos",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [2420, 300]
+      "position": [
+        2420,
+        300
+      ]
     },
     {
       "parameters": {
@@ -328,7 +364,10 @@
       "name": "Has Recent Videos?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [2640, 300]
+      "position": [
+        2640,
+        300
+      ]
     },
     {
       "parameters": {
@@ -361,7 +400,10 @@
       "name": "Get Video Details",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2880, 200],
+      "position": [
+        2880,
+        200
+      ],
       "credentials": {
         "httpQueryAuth": {
           "id": "youtube-api-key",
@@ -378,7 +420,10 @@
       "name": "Transform to ContentItem",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3100, 200]
+      "position": [
+        3100,
+        200
+      ]
     },
     {
       "parameters": {
@@ -410,7 +455,10 @@
       "name": "No Recent Videos",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [2880, 400]
+      "position": [
+        2880,
+        400
+      ]
     },
     {
       "parameters": {
@@ -442,7 +490,10 @@
       "name": "Channel Not Found",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [2200, 500]
+      "position": [
+        2200,
+        500
+      ]
     },
     {
       "parameters": {
@@ -454,7 +505,10 @@
       "name": "Merge Videos",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
-      "position": [3320, 400]
+      "position": [
+        3320,
+        400
+      ]
     },
     {
       "parameters": {
@@ -464,7 +518,10 @@
       "name": "Aggregate All Videos",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [3540, 400]
+      "position": [
+        3540,
+        400
+      ]
     },
     {
       "parameters": {
@@ -493,7 +550,10 @@
       "name": "Has Items?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [3760, 400]
+      "position": [
+        3760,
+        400
+      ]
     },
     {
       "parameters": {
@@ -516,7 +576,10 @@
       "name": "Ingest Content",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [4000, 300],
+      "position": [
+        4000,
+        300
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "briefly-api-auth",
@@ -548,7 +611,10 @@
       "name": "No Items to Ingest",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [4000, 500]
+      "position": [
+        4000,
+        500
+      ]
     },
     {
       "parameters": {
@@ -560,7 +626,10 @@
       "name": "Merge Final",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
-      "position": [4240, 400]
+      "position": [
+        4240,
+        400
+      ]
     },
     {
       "parameters": {
@@ -589,7 +658,10 @@
       "name": "Report Progress",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
-      "position": [4460, 400]
+      "position": [
+        4460,
+        400
+      ]
     },
     {
       "parameters": {
@@ -639,7 +711,10 @@
       "name": "Set Output",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [4680, 400]
+      "position": [
+        4680,
+        400
+      ]
     },
     {
       "parameters": {
@@ -689,7 +764,10 @@
       "name": "No Sources",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [1300, 600]
+      "position": [
+        1300,
+        600
+      ]
     },
     {
       "parameters": {
@@ -717,7 +795,10 @@
       "name": "Report Empty Progress",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
-      "position": [1520, 600]
+      "position": [
+        1520,
+        600
+      ]
     }
   ],
   "connections": {
@@ -1062,6 +1143,9 @@
     {
       "id": "briefly",
       "name": "briefly"
+    },
+    {
+      "name": "v1.0"
     }
   ]
 }

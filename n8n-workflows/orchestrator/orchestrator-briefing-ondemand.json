@@ -1,5 +1,5 @@
 {
-  "name": "Orchestrator - Briefing On-Demand",
+  "name": "BRIEFLY | Orchestrator - Briefing On-Demand v1.0",
   "nodes": [
     {
       "parameters": {
@@ -12,7 +12,10 @@
       "name": "Webhook Trigger",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
-      "position": [200, 400],
+      "position": [
+        200,
+        400
+      ],
       "webhookId": "briefing-ondemand-trigger"
     },
     {
@@ -57,7 +60,10 @@
       "name": "Parse Input",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [420, 400]
+      "position": [
+        420,
+        400
+      ]
     },
     {
       "parameters": {
@@ -80,7 +86,10 @@
       "name": "Report Start",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
-      "position": [640, 400]
+      "position": [
+        640,
+        400
+      ]
     },
     {
       "parameters": {
@@ -109,7 +118,10 @@
       "name": "X Platform?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [900, 200]
+      "position": [
+        900,
+        200
+      ]
     },
     {
       "parameters": {
@@ -138,7 +150,10 @@
       "name": "YouTube Platform?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [900, 400]
+      "position": [
+        900,
+        400
+      ]
     },
     {
       "parameters": {
@@ -167,7 +182,10 @@
       "name": "Podcast Platform?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
-      "position": [900, 600]
+      "position": [
+        900,
+        600
+      ]
     },
     {
       "parameters": {
@@ -193,7 +211,10 @@
       "name": "Execute X Adapter",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
-      "position": [1150, 100]
+      "position": [
+        1150,
+        100
+      ]
     },
     {
       "parameters": {
@@ -219,7 +240,10 @@
       "name": "Execute YouTube Adapter",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
-      "position": [1150, 350]
+      "position": [
+        1150,
+        350
+      ]
     },
     {
       "parameters": {
@@ -245,7 +269,10 @@
       "name": "Execute Podcast Adapter",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
-      "position": [1150, 550]
+      "position": [
+        1150,
+        550
+      ]
     },
     {
       "parameters": {
@@ -277,7 +304,10 @@
       "name": "Skip X",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [1150, 200]
+      "position": [
+        1150,
+        200
+      ]
     },
     {
       "parameters": {
@@ -309,7 +339,10 @@
       "name": "Skip YouTube",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [1150, 450]
+      "position": [
+        1150,
+        450
+      ]
     },
     {
       "parameters": {
@@ -341,7 +374,10 @@
       "name": "Skip Podcast",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [1150, 650]
+      "position": [
+        1150,
+        650
+      ]
     },
     {
       "parameters": {
@@ -353,7 +389,10 @@
       "name": "Merge Results",
       "type": "n8n-nodes-base.merge",
       "typeVersion": 3,
-      "position": [1400, 400]
+      "position": [
+        1400,
+        400
+      ]
     },
     {
       "parameters": {
@@ -363,7 +402,10 @@
       "name": "Aggregate Results",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1600, 400]
+      "position": [
+        1600,
+        400
+      ]
     },
     {
       "parameters": {
@@ -388,7 +430,10 @@
       "name": "Report Completion",
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.1,
-      "position": [1820, 400]
+      "position": [
+        1820,
+        400
+      ]
     },
     {
       "parameters": {
@@ -402,7 +447,10 @@
       "name": "Webhook Response",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [2040, 400]
+      "position": [
+        2040,
+        400
+      ]
     }
   ],
   "connections": {
@@ -625,6 +673,9 @@
     {
       "id": "briefly",
       "name": "briefly"
+    },
+    {
+      "name": "v1.0"
     }
   ]
 }
