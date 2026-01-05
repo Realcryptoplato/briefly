@@ -1,35 +1,42 @@
-# PRD: n8n Media Extraction Flows for Briefly 3000
+# PRD: n8n Media Extraction & Job Orchestration for Briefly 3000
 
 ## Overview
 
-Port Briefly 3000's media extraction logic from Python adapters to n8n workflows for improved reliability, rate limit handling, and operational visibility. **Design for modularity and long-term growth** across many content platforms.
+Make n8n the **primary execution engine** for Briefly 3000. All heavy lifting (extraction, transcription orchestration, briefing generation) runs in n8n workflows with granular progress reporting back to the dashboard. Briefly becomes a thin API layer for the UI and webhook endpoints.
 
 ## Problem Statement
 
-Current Python adapters face several challenges:
+Current architecture has critical issues:
+
+### Execution Issues
 1. **X API Rate Limits**: Free tier limits (100 tweets/15 min) cause 15-minute waits that timeout the dashboard
 2. **Monolithic Execution**: All extraction happens on-demand during briefing generation
 3. **No Retry Logic**: Failed extractions require full re-generation
 4. **Limited Visibility**: Errors are logged but not easily monitored
 5. **Single Credential**: Can't rotate API keys to avoid limits
-6. **Limited Extensibility**: Adding new platforms requires Python code changes
+
+### Job Persistence Issues (NEW)
+6. **In-Memory Jobs**: `_jobs` dict lost on server restart or browser reload
+7. **No Reconnection**: Close tab = lose visibility into running job
+8. **No Job History**: Can't see past runs, debug failures
+9. **UI Blocking**: Long transcriptions (5-10 min) with poor progress feedback
 
 ## Goals
 
-1. **Decouple extraction from generation** - Run extraction on schedules, not on-demand
-2. **Handle rate limits gracefully** - Queue, retry, and rotate credentials
-3. **Provide operational visibility** - Visual workflows, execution history, alerts
-4. **Enable incremental updates** - Only fetch new content since last run
-5. **Support multiple credential sets** - Rotate keys to maximize throughput
-6. **Modular architecture** - Reusable sub-workflows, easy platform additions
-7. **Scalable design** - Handle 10x sources without architectural changes
+1. **n8n as Execution Engine** - All heavy work runs in n8n, not FastAPI background tasks
+2. **Granular Progress Reporting** - n8n POSTs progress at each step (per-podcast, per-source)
+3. **Persistent Jobs** - Job state survives server restarts via n8n + thin local cache
+4. **Reconnectable UI** - Browser can reconnect to running n8n execution
+5. **Handle rate limits gracefully** - Queue, retry, and rotate credentials in n8n
+6. **Operational visibility** - Visual workflows, execution history in n8n UI
+7. **Modular architecture** - Reusable sub-workflows, easy platform additions
 
 ## Non-Goals
 
-- Replacing the Briefly dashboard (keep existing FastAPI UI)
-- Moving summarization/LLM calls to n8n (keep in Python for GPU access)
-- Real-time extraction (scheduled is sufficient)
-- Replacing Python adapters entirely (keep as fallback/reference)
+- Heavy job state in Briefly (n8n is source of truth)
+- Real-time websockets (1-2s polling is sufficient)
+- Multi-tenant job isolation (single-user for now)
+- Moving LLM summarization to n8n (keep in Python for GPU/prompt control)
 
 ---
 
@@ -98,14 +105,638 @@ Current Python adapters face several challenges:
 
 1. **n8n → Briefly API**: All content flows through REST API (not direct DB)
 2. **Briefly → n8n Webhooks**: Dashboard can trigger on-demand extraction
-3. **Shared Schema**: ContentItem dataclass is the contract between systems
-4. **Credential Isolation**: Platform secrets stored in n8n, not Briefly
+3. **n8n → Briefly Progress**: n8n POSTs progress updates during execution
+4. **Shared Schema**: ContentItem dataclass is the contract between systems
+5. **Credential Isolation**: Platform secrets stored in n8n, not Briefly
+
+---
+
+## Job Management & Progress Reporting (NEW)
+
+This is the **critical addition** that makes n8n the execution engine with granular progress visible in the dashboard.
+
+### Architecture Overview
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                            DASHBOARD (Browser)                                │
+├──────────────────────────────────────────────────────────────────────────────┤
+│  1. User clicks "Generate Briefing"                                          │
+│  2. Poll GET /api/jobs/{id} every 1.5s                                       │
+│  3. Display progress from response                                            │
+│  4. On complete, show briefing                                                │
+└─────────────────────────────────┬────────────────────────────────────────────┘
+                                  │
+                    POST /api/jobs │ GET /api/jobs/{id}
+                                  ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                         BRIEFLY API (Thin Layer)                              │
+├──────────────────────────────────────────────────────────────────────────────┤
+│  POST /api/jobs                                                               │
+│    → Create job record (id, status=pending)                                   │
+│    → POST to n8n webhook with job_id                                          │
+│    → Return job_id immediately                                                │
+│                                                                               │
+│  GET /api/jobs/{id}                                                           │
+│    → Return job from local cache (progress, status)                           │
+│                                                                               │
+│  POST /api/n8n/progress (webhook for n8n)                                     │
+│    → Update job progress in local cache                                       │
+│                                                                               │
+│  POST /api/n8n/complete (webhook for n8n)                                     │
+│    → Mark job complete, store result reference                                │
+└─────────────────────────────────┬────────────────────────────────────────────┘
+                                  │
+              Webhook trigger      │     Progress webhooks
+                                  ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                         n8n WORKFLOW ENGINE                                   │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│  orchestrator-briefing-ondemand:                                              │
+│                                                                               │
+│  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐                     │
+│  │ 1. Webhook  │────▶│ 2. Progress │────▶│ 3. Fetch X  │                     │
+│  │ (job_id)    │     │ "Starting"  │     │             │                     │
+│  └─────────────┘     └─────────────┘     └──────┬──────┘                     │
+│                                                  │                            │
+│                      ┌───────────────────────────┘                            │
+│                      ▼                                                        │
+│  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐                     │
+│  │ 4. Progress │────▶│ 5. Fetch YT │────▶│ 6. Progress │                     │
+│  │ "X: 25"     │     │             │     │ "YT: 12"    │                     │
+│  └─────────────┘     └─────────────┘     └──────┬──────┘                     │
+│                                                  │                            │
+│                      ┌───────────────────────────┘                            │
+│                      ▼                                                        │
+│  ┌─────────────────────────────────────────────────────────────────────┐     │
+│  │ 7. Loop: For each podcast                                            │     │
+│  │    ┌──────────────┐     ┌──────────────┐     ┌──────────────┐       │     │
+│  │    │ Progress     │────▶│ Fetch        │────▶│ Transcribe   │       │     │
+│  │    │ "Pod 1/3"    │     │ Episodes     │     │ (if needed)  │       │     │
+│  │    └──────────────┘     └──────────────┘     └──────────────┘       │     │
+│  │           │                                         │                │     │
+│  │           │          ┌──────────────────────────────┘                │     │
+│  │           ▼          ▼                                               │     │
+│  │    ┌──────────────────────┐                                          │     │
+│  │    │ Progress             │  ◄── POST for EACH podcast iteration     │     │
+│  │    │ "Pod 2/3: All-In"    │                                          │     │
+│  │    │ "Transcribing ep 1"  │                                          │     │
+│  │    └──────────────────────┘                                          │     │
+│  └─────────────────────────────────────────────────────────────────────┘     │
+│                      │                                                        │
+│                      ▼                                                        │
+│  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐                     │
+│  │ 8. Progress │────▶│ 9. Call     │────▶│ 10. Progress│                     │
+│  │ "Summarize" │     │ Briefly API │     │ "Complete"  │                     │
+│  └─────────────┘     │ /generate   │     └─────────────┘                     │
+│                      └─────────────┘                                          │
+│                                                                               │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Briefly Job API Endpoints (Thin Layer)
+
+These are the **only endpoints** Briefly needs for job management. n8n handles everything else.
+
+#### POST /api/jobs
+
+**Purpose**: Create job, trigger n8n workflow
+
+**Request**:
+```json
+{
+    "type": "briefing",
+    "params": {
+        "hours_back": 24,
+        "category_ids": ["cat-1", "cat-2"]
+    }
+}
+```
+
+**Response**:
+```json
+{
+    "job_id": "job-uuid-123",
+    "status": "pending",
+    "n8n_triggered": true
+}
+```
+
+**Implementation**:
+```python
+@router.post("/jobs")
+async def create_job(req: CreateJobRequest):
+    job_id = str(uuid4())
+
+    # Store minimal job record
+    jobs_cache[job_id] = {
+        "id": job_id,
+        "status": "pending",
+        "progress": None,
+        "created_at": datetime.utcnow().isoformat()
+    }
+
+    # Trigger n8n webhook (fire and forget)
+    async with httpx.AsyncClient() as client:
+        await client.post(
+            f"{N8N_WEBHOOK_URL}/briefing-ondemand",
+            json={"job_id": job_id, **req.params}
+        )
+
+    return {"job_id": job_id, "status": "pending"}
+```
+
+---
+
+#### GET /api/jobs/{job_id}
+
+**Purpose**: Return current job status and progress
+
+**Response** (during execution):
+```json
+{
+    "id": "job-uuid-123",
+    "status": "running",
+    "progress": {
+        "step": "Fetching podcasts",
+        "step_detail": "Transcribing episode",
+        "media_status": {
+            "x": {"status": "done", "count": 25},
+            "youtube": {"status": "done", "count": 12},
+            "podcasts": {
+                "status": "fetching",
+                "stage": "transcribing",
+                "current_podcast": "All-In Podcast",
+                "current_episode": "E167: Market Analysis",
+                "podcast_current": 2,
+                "podcast_total": 3,
+                "episode_current": 1,
+                "episode_total": 4
+            }
+        },
+        "elapsed_seconds": 45.2
+    },
+    "created_at": "2024-01-15T10:30:00Z"
+}
+```
+
+**Response** (completed):
+```json
+{
+    "id": "job-uuid-123",
+    "status": "completed",
+    "progress": {"step": "Complete"},
+    "result": {
+        "briefing_id": "briefing-456",
+        "stats": {
+            "x_count": 25,
+            "youtube_count": 12,
+            "podcast_count": 8
+        }
+    },
+    "created_at": "2024-01-15T10:30:00Z",
+    "completed_at": "2024-01-15T10:32:15Z"
+}
+```
+
+---
+
+#### POST /api/n8n/progress
+
+**Purpose**: Webhook for n8n to push progress updates
+
+**Request** (from n8n):
+```json
+{
+    "job_id": "job-uuid-123",
+    "step": "Fetching podcasts",
+    "step_detail": "Transcribing episode",
+    "media_status": {
+        "x": {"status": "done", "count": 25},
+        "youtube": {"status": "done", "count": 12},
+        "podcasts": {
+            "status": "fetching",
+            "stage": "transcribing",
+            "current_podcast": "All-In Podcast",
+            "current_episode": "E167: Market Analysis",
+            "podcast_current": 2,
+            "podcast_total": 3
+        }
+    }
+}
+```
+
+**Response**: `{"ok": true}`
+
+**Implementation**:
+```python
+@router.post("/n8n/progress")
+async def n8n_progress(req: ProgressUpdate):
+    if req.job_id in jobs_cache:
+        jobs_cache[req.job_id]["status"] = "running"
+        jobs_cache[req.job_id]["progress"] = {
+            "step": req.step,
+            "step_detail": req.step_detail,
+            "media_status": req.media_status,
+            "updated_at": datetime.utcnow().isoformat()
+        }
+    return {"ok": True}
+```
+
+---
+
+#### POST /api/n8n/complete
+
+**Purpose**: Webhook for n8n to mark job complete
+
+**Request** (from n8n):
+```json
+{
+    "job_id": "job-uuid-123",
+    "status": "completed",
+    "result": {
+        "briefing_id": "briefing-456",
+        "stats": {...}
+    }
+}
+```
+
+**Or for failures**:
+```json
+{
+    "job_id": "job-uuid-123",
+    "status": "failed",
+    "error": "X API rate limited after 50 tweets"
+}
+```
+
+---
+
+#### GET /api/jobs/active
+
+**Purpose**: Check for running job (for reconnection on page load)
+
+**Response** (if active job exists):
+```json
+{
+    "id": "job-uuid-123",
+    "status": "running",
+    "progress": {...},
+    "created_at": "..."
+}
+```
+
+**Response** (no active job): `404`
+
+---
+
+### n8n Progress Reporting Sub-Workflow
+
+This reusable sub-workflow is called throughout n8n workflows to report progress.
+
+#### sub-progress-report
+
+**Purpose**: POST progress update to Briefly API
+
+**Input**:
+```json
+{
+    "job_id": "job-uuid-123",
+    "step": "Fetching podcasts",
+    "step_detail": "Processing All-In Podcast",
+    "media_status": {
+        "x": {"status": "done", "count": 25},
+        "podcasts": {
+            "status": "fetching",
+            "stage": "transcribing",
+            "current_podcast": "All-In Podcast",
+            "podcast_current": 2,
+            "podcast_total": 3
+        }
+    }
+}
+```
+
+**n8n Implementation**:
+```
+[Input] → [HTTP POST to /api/n8n/progress] → [Output]
+```
+
+**Usage in workflows**:
+```
+Every workflow step that takes >2 seconds should call sub-progress-report
+```
+
+---
+
+### Granular Progress Patterns
+
+#### Pattern 1: After Each Platform Fetch
+
+```
+┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+│ Fetch X      │────▶│ Progress:    │────▶│ Fetch YT     │
+│              │     │ "X done: 25" │     │              │
+└──────────────┘     └──────────────┘     └──────────────┘
+```
+
+**Progress payload**:
+```json
+{
+    "job_id": "...",
+    "step": "Fetching media",
+    "media_status": {
+        "x": {"status": "done", "count": 25},
+        "youtube": {"status": "pending"},
+        "podcasts": {"status": "pending"}
+    }
+}
+```
+
+---
+
+#### Pattern 2: Loop Progress (Podcasts)
+
+n8n's Loop node can call progress on each iteration:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Loop Over Items: podcasts[]                                 │
+│                                                              │
+│  For each podcast:                                           │
+│    1. sub-progress-report (current podcast)                  │
+│    2. Fetch episodes from Taddy                              │
+│    3. For episodes needing transcription:                    │
+│       a. sub-progress-report (current episode, transcribing) │
+│       b. Call Briefly /api/transcribe                        │
+│       c. sub-progress-report (episode done)                  │
+│    4. sub-progress-report (podcast done)                     │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Progress payload (mid-loop)**:
+```json
+{
+    "job_id": "...",
+    "step": "Processing podcasts",
+    "step_detail": "Transcribing episode",
+    "media_status": {
+        "x": {"status": "done", "count": 25},
+        "youtube": {"status": "done", "count": 12},
+        "podcasts": {
+            "status": "fetching",
+            "stage": "transcribing",
+            "current_podcast": "All-In Podcast",
+            "current_episode": "E167: AI & Markets",
+            "podcast_current": 2,
+            "podcast_total": 5,
+            "episode_current": 3,
+            "episode_total": 4
+        }
+    }
+}
+```
+
+---
+
+#### Pattern 3: Stage Transitions
+
+Report progress when entering new stages:
+
+| Stage | Progress Step |
+|-------|---------------|
+| Start | "Starting briefing generation" |
+| X fetch | "Fetching X posts" |
+| X done | "X complete: 25 posts" |
+| YT fetch | "Fetching YouTube videos" |
+| YT done | "YouTube complete: 12 videos" |
+| Pod start | "Processing podcasts (1/5)" |
+| Pod transcribe | "Transcribing: All-In E167" |
+| Pod done | "Podcasts complete: 8 episodes" |
+| Summarize | "Generating AI summary" |
+| Complete | "Briefing ready" |
+
+---
+
+### n8n Workflow: orchestrator-briefing-ondemand
+
+**Trigger**: Webhook from Briefly POST /api/jobs
+
+**Input**:
+```json
+{
+    "job_id": "job-uuid-123",
+    "hours_back": 24,
+    "category_ids": ["tech", "news"]
+}
+```
+
+**Flow**:
+
+```
+1. [Webhook Trigger]
+   └─ Receives job_id, params
+
+2. [Set Variables]
+   └─ job_id, hours_back, sources
+
+3. [sub-progress-report]
+   └─ {"step": "Starting", "media_status": {all: pending}}
+
+4. [Get Sources]
+   └─ GET /api/sources?categories=tech,news
+
+5. [Execute: adapter-x]
+   └─ Fetch X posts (handles rate limits internally)
+
+6. [sub-progress-report]
+   └─ {"step": "X complete", "media_status": {x: done, count: N}}
+
+7. [Execute: adapter-youtube]
+   └─ Fetch YT videos + transcripts
+
+8. [sub-progress-report]
+   └─ {"step": "YouTube complete", "media_status": {youtube: done}}
+
+9. [Loop: For each podcast source]
+   │
+   ├─ [sub-progress-report]
+   │  └─ {"podcasts": {stage: "fetching", current_podcast: "..."}}
+   │
+   ├─ [Get Episodes from Taddy]
+   │
+   ├─ [Loop: Episodes needing transcription]
+   │  │
+   │  ├─ [sub-progress-report]
+   │  │  └─ {stage: "transcribing", current_episode: "..."}
+   │  │
+   │  └─ [HTTP POST /api/transcribe]
+   │     └─ Queue for Whisper processing
+   │
+   └─ [sub-progress-report]
+      └─ {"podcasts": {podcast_current: N+1}}
+
+10. [sub-progress-report]
+    └─ {"step": "Generating summary"}
+
+11. [HTTP POST /api/briefings/summarize]
+    └─ Triggers Briefly to run LLM summarization
+
+12. [sub-progress-report]
+    └─ {"step": "Complete"}
+
+13. [HTTP POST /api/n8n/complete]
+    └─ {"job_id": "...", "status": "completed", "result": {...}}
+```
+
+---
+
+### Job Cache Implementation (Briefly Side)
+
+The Briefly-side job cache is intentionally thin - just enough to hold progress for UI polling.
+
+**For detailed implementation**, see: `docs/PRD-dashboard-job-persistence.md`
+
+That PRD covers:
+- PostgreSQL (production) + SQLite (dev) dual-backend support
+- Async database operations with asyncpg
+- `JobService` class with full CRUD operations
+- Reconnection logic for the dashboard
+
+**Minimal interface needed by n8n**:
+
+```python
+# What n8n webhooks call:
+
+POST /api/n8n/progress
+  → job_cache.update_progress(job_id, progress_dict)
+
+POST /api/n8n/complete
+  → job_cache.complete(job_id, result_dict)
+  OR
+  → job_cache.fail(job_id, error_message)
+```
+
+**Key design points**:
+- Don't persist on every progress update (too frequent, n8n calls often)
+- Persist on create, complete, and fail
+- Cleanup jobs older than 24 hours
+- n8n is source of truth; this cache is for fast UI polling
+
+---
+
+### Dashboard Integration
+
+The dashboard only needs to:
+1. POST /api/jobs to start
+2. Poll GET /api/jobs/{id} for progress
+3. Check GET /api/jobs/active on page load
+
+```javascript
+// Alpine.js integration
+
+async generateBriefing() {
+    // Create job (triggers n8n)
+    const resp = await fetch('/api/jobs', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            type: 'briefing',
+            params: {hours_back: this.hoursBack, category_ids: this.selectedCategories}
+        })
+    });
+    const {job_id} = await resp.json();
+    this.currentJobId = job_id;
+    this.generating = true;
+    this.startPolling();
+},
+
+startPolling() {
+    this.pollInterval = setInterval(async () => {
+        const job = await fetch(`/api/jobs/${this.currentJobId}`).then(r => r.json());
+
+        // Update UI with progress
+        this.jobStatus = job.status;
+        this.jobProgress = job.progress;
+        if (job.progress?.media_status) {
+            this.mediaStatus = job.progress.media_status;
+        }
+
+        // Check for completion
+        if (job.status === 'completed') {
+            clearInterval(this.pollInterval);
+            this.generating = false;
+            this.showBriefing(job.result.briefing_id);
+        } else if (job.status === 'failed') {
+            clearInterval(this.pollInterval);
+            this.generating = false;
+            this.showError(job.error);
+        }
+    }, 1500);
+},
+
+// On page load - check for active job
+async init() {
+    try {
+        const active = await fetch('/api/jobs/active').then(r => r.json());
+        this.currentJobId = active.id;
+        this.generating = true;
+        this.reconnected = true;
+        this.startPolling();
+    } catch (e) {
+        // No active job, normal state
+    }
+}
+```
 
 ---
 
 ## Shared Sub-Workflows (Reusable Components)
 
 These sub-workflows are called by platform adapters. Build these FIRST.
+
+### 0. Progress Reporter (`sub-progress-report`) - BUILD FIRST
+
+**Purpose**: Report progress to Briefly API for UI display. Called throughout all workflows.
+
+**Input**:
+```json
+{
+    "job_id": "job-uuid-123",
+    "step": "Fetching podcasts",
+    "step_detail": "Processing All-In Podcast",
+    "media_status": {
+        "x": {"status": "done", "count": 25},
+        "youtube": {"status": "pending"},
+        "podcasts": {
+            "status": "fetching",
+            "stage": "transcribing",
+            "current_podcast": "All-In Podcast",
+            "podcast_current": 2,
+            "podcast_total": 5
+        }
+    }
+}
+```
+
+**n8n Implementation**:
+```
+[Start] → [HTTP Request]
+           Method: POST
+           URL: {{$env.BRIEFLY_API_URL}}/api/n8n/progress
+           Body: {{ $json }}
+        → [End]
+```
+
+**Usage**: Call this sub-workflow:
+- After each platform adapter completes
+- Inside loops (for each podcast/episode)
+- Before and after long operations (transcription, summarization)
+- On errors (with error details in step_detail)
+
+---
 
 ### 1. Source Fetcher (`sub-source-fetcher`)
 
@@ -862,6 +1493,7 @@ n8n-workflows/
 ├── README.md                      # Setup & import instructions
 │
 ├── sub/                           # Shared sub-workflows (build first)
+│   ├── sub-progress-report.json   # ⭐ BUILD FIRST - progress to Briefly
 │   ├── sub-source-fetcher.json
 │   ├── sub-rate-limit.json
 │   ├── sub-content-ingest.json
@@ -891,34 +1523,51 @@ n8n-workflows/
 │
 └── orchestrator/                  # High-level coordination
     ├── orchestrator-daily.json
-    ├── orchestrator-ondemand.json
+    ├── orchestrator-briefing-ondemand.json  # ⭐ Dashboard triggers this
     └── orchestrator-health.json   # Watchdog/monitoring
 ```
 
 **Import Order**: sub/ → adapters/ → delivery/ → scheduler/ → orchestrator/
 
+**Critical Path** (minimum for dashboard integration):
+1. `sub-progress-report.json` - Progress reporting
+2. `orchestrator-briefing-ondemand.json` - Full briefing pipeline
+3. Briefly job endpoints - Receive webhooks
+
 ---
 
 ## Implementation Phases
 
-### Phase 0: Foundation (API Endpoints)
-**Goal**: Briefly API ready to receive n8n calls
+### Phase 0: Foundation (API Endpoints + Job Management)
+**Goal**: Briefly API ready to receive n8n calls AND report progress
 
+**Job Management Endpoints (Priority - enables all other work)**:
+- [ ] `POST /api/jobs` - Create job, trigger n8n webhook
+- [ ] `GET /api/jobs/{id}` - Return job status and progress
+- [ ] `GET /api/jobs/active` - Return currently running job (for reconnection)
+- [ ] `POST /api/n8n/progress` - Webhook for n8n progress updates
+- [ ] `POST /api/n8n/complete` - Webhook for n8n job completion
+- [ ] `JobCache` class - Thin in-memory + disk persistence
+
+**Content Endpoints**:
 - [ ] `POST /api/content/ingest` - Bulk content ingestion with dedup
 - [ ] `GET /api/sources?platform={x}` - Sources by platform
 - [ ] `GET /api/extraction/status` - Last extraction times
 - [ ] `POST /api/content/transcribe` - Queue transcription job
-- [ ] `GET /api/users/schedules/due` - Users due for briefing
-- [ ] `POST /api/users/{id}/schedule` - Update user schedule
-- [ ] `GET /api/extraction/metrics` - Extraction stats
+- [ ] `POST /api/briefings/summarize` - Trigger LLM summarization (called by n8n)
 
 **Deliverable**: OpenAPI spec for n8n HTTP nodes
 
+**Teams can work in parallel**:
+- Briefly team: Implement job endpoints
+- n8n team: Build sub-progress-report and test against mock endpoint
+
 ---
 
-### Phase 1: Shared Sub-Workflows
-**Goal**: Reusable building blocks
+### Phase 1: Core Sub-Workflows
+**Goal**: Reusable building blocks that all adapters need
 
+- [ ] `sub-progress-report` - POST progress to Briefly (BUILD FIRST)
 - [ ] `sub-source-fetcher` - Simple HTTP GET wrapper
 - [ ] `sub-content-ingest` - POST to ingest endpoint
 - [ ] `sub-error-handler` - Logging + conditional alerts
@@ -926,6 +1575,7 @@ n8n-workflows/
 - [ ] `sub-metrics` - Store to n8n static data
 
 **Test**: Each sub-workflow independently with mock data
+**Critical**: Test progress reporting end-to-end (n8n → Briefly → Dashboard)
 
 ---
 
@@ -1027,23 +1677,37 @@ n8n-workflows/
 | Sub-workflow pattern | n8n Execute Workflow node | Native support, clean separation, testable |
 | Error strategy | Partial success | Continue with working platforms if one fails |
 
+## Decisions Made
+
+1. **Job persistence**: n8n is source of truth, Briefly has thin cache for progress
+   - **Decision**: Thin `JobCache` in Briefly, full execution history in n8n
+   - **Rationale**: Avoid duplicating n8n's persistence, minimize Briefly complexity
+
+2. **Progress reporting**: n8n POSTs progress to Briefly webhooks
+   - **Decision**: `sub-progress-report` calls `POST /api/n8n/progress`
+   - **Rationale**: Real-time progress without polling n8n API
+
+3. **Dashboard integration**: Webhook triggers + progress webhooks
+   - **Decision**: Dashboard → Briefly → n8n webhook, n8n → Briefly progress webhook
+   - **Rationale**: Clean separation, dashboard doesn't know about n8n directly
+
+4. **Transcript processing**: n8n queues, Python/Whisper transcribes
+   - **Decision**: n8n calls `POST /api/content/transcribe`, Briefly runs Whisper
+   - **Rationale**: GPU access needed for local Whisper, n8n orchestrates
+
 ## Open Questions
 
 1. **Multi-user content isolation**: Should n8n store content per-user or globally?
    - **Current thinking**: Global store with user→source mapping
    - **Trade-off**: Simpler dedup vs. per-user filtering complexity
 
-2. **Transcript processing location**: n8n queue → Python Whisper, or n8n handles audio?
-   - **Current thinking**: n8n queues, Python transcribes (GPU on local machine)
-   - **Trade-off**: n8n could call cloud Whisper API for VPS-only deployments
-
-3. **Rate limit state persistence**: n8n static data vs. Redis vs. Briefly API?
+2. **Rate limit state persistence**: n8n static data vs. Redis vs. Briefly API?
    - **Current thinking**: n8n static data (simple, survives restarts)
    - **Trade-off**: Not shared across n8n instances if scaled
 
-4. **Dashboard integration depth**: Light webhook triggers vs. deep n8n embedding?
-   - **Current thinking**: Webhooks for triggers, polling for status
-   - **Trade-off**: n8n UI could be embedded via iframe for power users
+3. **n8n fallback**: What happens if n8n is down when user clicks Generate?
+   - **Options**: (a) Error message, (b) Fall back to local Python execution
+   - **Recommendation**: Start with error message, add fallback later if needed
 
 ---
 
