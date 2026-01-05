@@ -167,7 +167,7 @@ class PostgreSQLBackend:
                 INSERT INTO jobs (id, type, status, created_at, input, source)
                 VALUES ($1, $2, $3, $4, $5, $6)
             ''', job.id, job.type, job.status, job.created_at,
-                json.dumps(job.input) if job.input else None, job.source)
+                json.dumps(job.input) if job.input is not None else None, job.source)
 
     async def get_job(self, job_id: str) -> Optional[Job]:
         """Get job by ID."""
@@ -291,7 +291,7 @@ class SQLiteBackend:
                 INSERT INTO jobs (id, type, status, created_at, input, source)
                 VALUES (?, ?, ?, ?, ?, ?)
             ''', (job.id, job.type, job.status, job.created_at.isoformat(),
-                  json.dumps(job.input) if job.input else None, job.source))
+                  json.dumps(job.input) if job.input is not None else None, job.source))
 
     async def get_job(self, job_id: str) -> Optional[Job]:
         """Get job by ID."""

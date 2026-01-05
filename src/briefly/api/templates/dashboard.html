@@ -6,6 +6,7 @@
     <title>Briefly 3000</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>[x-cloak] { display: none !important; }</style>
 </head>
 <body class="bg-gray-900 text-gray-100 min-h-screen">
     <div class="container mx-auto px-4 py-8" x-data="dashboard()">
@@ -109,6 +110,145 @@
                     </div>
                 </div>
 
+                <!-- Podcasts -->
+                <div class="bg-gray-800 rounded-lg p-6">
+                    <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                        <span class="text-2xl">🎙️</span> Podcasts
+                        <span class="text-sm text-gray-500 font-normal">(<span x-text="podcasts.length"></span>)</span>
+                        <span x-show="!podcastsConfigured" class="text-xs text-yellow-500 ml-auto">API not configured</span>
+                    </h2>
+
+                    <!-- Search podcasts -->
+                    <form @submit.prevent="searchPodcasts" class="mb-4" x-show="podcastsConfigured">
+                        <div class="flex gap-2">
+                            <input
+                                type="text"
+                                x-model="podcastSearchQuery"
+                                placeholder="Search podcasts..."
+                                class="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-purple-500"
+                            >
+                            <button type="submit" :disabled="searchingPodcasts" class="bg-purple-600 hover:bg-purple-500 px-4 py-2 rounded text-sm font-medium disabled:opacity-50">
+                                <span x-show="searchingPodcasts" class="animate-spin">⟳</span>
+                                <span x-show="!searchingPodcasts">Search</span>
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- Search results -->
+                    <div x-show="podcastSearchResults.length > 0" class="mb-4 space-y-2 max-h-48 overflow-y-auto">
+                        <p class="text-xs text-gray-400 mb-1">Search results:</p>
+                        <template x-for="result in podcastSearchResults" :key="result.id">
+                            <div class="flex items-center justify-between bg-gray-700/50 rounded px-3 py-2 text-sm">
+                                <div class="flex items-center gap-2 flex-1 truncate">
+                                    <img x-show="result.image_url" :src="result.image_url" class="w-8 h-8 rounded" alt="">
+                                    <div class="truncate">
+                                        <span class="font-medium" x-text="result.name"></span>
+                                        <p class="text-xs text-gray-400 truncate" x-text="result.author"></p>
+                                    </div>
+                                </div>
+                                <button @click="addPodcast(result.id)" class="text-green-400 hover:text-green-300 ml-2 flex-shrink-0">+ Add</button>
+                            </div>
+                        </template>
+                    </div>
+
+                    <!-- Added podcasts -->
+                    <div class="space-y-2 max-h-64 overflow-y-auto">
+                        <template x-for="podcast in podcasts" :key="podcast.id">
+                            <div class="bg-gray-700 rounded px-3 py-2 text-sm">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-2 flex-1 truncate">
+                                        <img x-show="podcast.image_url" :src="podcast.image_url" class="w-8 h-8 rounded" alt="">
+                                        <div class="truncate">
+                                            <span class="font-medium" x-text="podcast.name"></span>
+                                            <!-- Inline transcript status -->
+                                            <div class="flex items-center gap-1 text-xs mt-0.5">
+                                                <template x-if="podcastTranscriptStatus[podcast.id]">
+                                                    <div class="flex items-center gap-1">
+                                                        <span x-show="podcastTranscriptStatus[podcast.id]?.available > 0"
+                                                              class="text-green-400" title="Taddy transcripts">
+                                                            <span x-text="podcastTranscriptStatus[podcast.id]?.available"></span>T
+                                                        </span>
+                                                        <span x-show="podcastTranscriptStatus[podcast.id]?.audio_only > 0"
+                                                              class="text-yellow-400" title="Audio only (local transcribe)">
+                                                            <span x-text="podcastTranscriptStatus[podcast.id]?.audio_only"></span>A
+                                                        </span>
+                                                        <span class="text-gray-500">recent eps</span>
+                                                    </div>
+                                                </template>
+                                                <template x-if="!podcastTranscriptStatus[podcast.id]">
+                                                    <span class="text-gray-500">loading...</span>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <button @click="removePodcast(podcast.id)" class="text-red-400 hover:text-red-300 flex-shrink-0">✕</button>
+                                </div>
+                            </div>
+                        </template>
+                        <p x-show="!podcasts.length && podcastsConfigured" class="text-gray-500 text-sm">No podcasts added. Search to add!</p>
+                        <p x-show="!podcastsConfigured" class="text-gray-500 text-sm">
+                            Set TADDY_API_KEY and TADDY_USER_ID in .env to enable podcasts.
+                        </p>
+                    </div>
+
+                    <!-- Transcript legend -->
+                    <div x-show="podcasts.length > 0" class="mt-2 text-xs text-gray-500">
+                        <span class="text-green-400">T</span>=Taddy transcript
+                        <span class="text-yellow-400 ml-2">A</span>=Audio (local Whisper)
+                    </div>
+
+                    <p x-show="podcastError" x-text="podcastError" class="text-red-400 text-sm mt-2"></p>
+                </div>
+
+                <!-- Categories -->
+                <div class="bg-gray-800 rounded-lg p-6">
+                    <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                        <span class="text-2xl">📁</span> Categories
+                        <span class="text-sm text-gray-500 font-normal">(<span x-text="categories.length"></span>)</span>
+                    </h2>
+
+                    <!-- Category list -->
+                    <div class="space-y-2 mb-4 max-h-48 overflow-y-auto">
+                        <template x-for="cat in categories" :key="cat.id">
+                            <div class="flex items-center justify-between bg-gray-700 rounded px-3 py-2 text-sm">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-3 h-3 rounded-full" :style="`background: ${cat.color}`"></span>
+                                    <span class="font-medium" x-text="cat.name"></span>
+                                    <span class="text-xs text-gray-400">
+                                        (<span x-text="(cat.sources?.x?.length || 0) + (cat.sources?.youtube?.length || 0)"></span>)
+                                    </span>
+                                </div>
+                                <div class="flex items-center gap-1">
+                                    <button
+                                        @click="generateFromCategory(cat.id)"
+                                        :disabled="generating"
+                                        class="text-cyan-400 hover:text-cyan-300 text-xs px-2 py-1 bg-gray-600 rounded"
+                                    >
+                                        Brief
+                                    </button>
+                                    <button @click="deleteCategory(cat.id)" class="text-red-400 hover:text-red-300">✕</button>
+                                </div>
+                            </div>
+                        </template>
+                        <p x-show="!categories.length" class="text-gray-500 text-sm">No categories yet</p>
+                    </div>
+
+                    <!-- Add from preset -->
+                    <div class="border-t border-gray-700 pt-3">
+                        <p class="text-xs text-gray-400 mb-2">Quick add from presets:</p>
+                        <div class="flex flex-wrap gap-1">
+                            <template x-for="preset in categoryPresets" :key="preset.name">
+                                <button
+                                    @click="createCategoryFromPreset(preset.name)"
+                                    class="text-xs px-2 py-1 rounded border border-gray-600 hover:border-gray-500 hover:bg-gray-700"
+                                    :style="`border-color: ${preset.color}`"
+                                    x-text="preset.name"
+                                ></button>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Semantic Search -->
                 <div class="bg-gray-800 rounded-lg p-6">
                     <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
@@ -177,17 +317,230 @@
                 <div class="bg-gray-800 rounded-lg p-4">
                     <h3 class="text-sm font-medium text-gray-400 mb-2">Transcripts</h3>
                     <div class="text-sm space-y-2">
-                        <p><span x-text="transcriptStats.pending_summarization || 0"></span> pending summarization</p>
-                        <button
-                            @click="processTranscripts"
-                            :disabled="processingTranscripts"
-                            x-show="transcriptStats.pending_summarization > 0"
-                            class="w-full bg-purple-600 hover:bg-purple-500 px-3 py-2 rounded text-xs font-medium disabled:opacity-50"
-                        >
-                            <span x-show="processingTranscripts" class="animate-spin inline-block mr-1">&#8635;</span>
-                            <span x-text="processingTranscripts ? 'Processing...' : 'Summarize Transcripts'"></span>
-                        </button>
-                        <p x-show="transcriptResult" x-text="transcriptResult" class="text-green-400 text-xs"></p>
+                        <p x-show="transcriptStats.pending_summarization > 0">
+                            <span x-text="transcriptStats.pending_summarization"></span> pending
+                            <span class="text-xs text-gray-500">(processed during briefing)</span>
+                        </p>
+                        <p x-show="!transcriptStats.pending_summarization" class="text-green-400">
+                            All transcripts processed
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Settings -->
+                <div class="bg-gray-800 rounded-lg p-4">
+                    <h3 class="text-sm font-medium text-gray-400 mb-2">Settings</h3>
+                    <div class="text-sm space-y-2">
+                        <div class="flex justify-between">
+                            <span class="text-gray-500">Summarization:</span>
+                            <span class="text-cyan-400" x-text="appSettings.local_llm?.enabled ? 'Local LLM' : (appSettings.llm?.summarization_model || 'grok-4.1-fast')"></span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-500">Embeddings:</span>
+                            <span class="text-cyan-400" x-text="appSettings.llm?.embedding_model || 'text-embedding-3-small'"></span>
+                        </div>
+
+                        <!-- Local LLM Configuration -->
+                        <div class="border-t border-gray-700 pt-2 mt-2">
+                            <div class="flex items-center justify-between mb-2">
+                                <label class="text-xs text-gray-500">Local LLM:</label>
+                                <button @click="showLocalLLMConfig = !showLocalLLMConfig"
+                                        class="text-xs px-2 py-0.5 rounded"
+                                        :class="appSettings.local_llm?.enabled ? 'bg-green-900 text-green-300' : 'bg-gray-700 text-gray-400'">
+                                    <span x-text="appSettings.local_llm?.enabled ? 'Enabled' : 'Disabled'"></span>
+                                    <span x-text="showLocalLLMConfig ? '▲' : '▼'" class="ml-1"></span>
+                                </button>
+                            </div>
+
+                            <!-- Collapsible Local LLM Config -->
+                            <div x-show="showLocalLLMConfig" x-collapse class="space-y-2 mt-2 p-2 bg-gray-900 rounded">
+                                <div>
+                                    <label class="text-xs text-gray-500 block mb-1">Base URL:</label>
+                                    <input type="text" x-model="localLLMConfig.base_url"
+                                           class="w-full bg-gray-700 text-white text-xs px-2 py-1 rounded border border-gray-600 focus:border-cyan-500 focus:outline-none"
+                                           placeholder="http://192.168.2.203:1234/v1">
+                                </div>
+                                <div>
+                                    <label class="text-xs text-gray-500 block mb-1">Model:</label>
+                                    <input type="text" x-model="localLLMConfig.model"
+                                           class="w-full bg-gray-700 text-white text-xs px-2 py-1 rounded border border-gray-600 focus:border-cyan-500 focus:outline-none"
+                                           placeholder="local-model">
+                                </div>
+                                <div class="flex gap-2 mt-2">
+                                    <button @click="testLocalLLM()"
+                                            :disabled="testingLocalLLM"
+                                            class="flex-1 bg-gray-700 hover:bg-gray-600 text-white text-xs px-2 py-1 rounded disabled:opacity-50">
+                                        <span x-text="testingLocalLLM ? 'Testing...' : 'Test'"></span>
+                                    </button>
+                                    <button @click="saveLocalLLM(true)"
+                                            :disabled="savingLocalLLM"
+                                            class="flex-1 bg-green-700 hover:bg-green-600 text-white text-xs px-2 py-1 rounded disabled:opacity-50">
+                                        Enable
+                                    </button>
+                                    <button @click="saveLocalLLM(false)"
+                                            x-show="appSettings.local_llm?.enabled"
+                                            class="flex-1 bg-red-700 hover:bg-red-600 text-white text-xs px-2 py-1 rounded">
+                                        Disable
+                                    </button>
+                                </div>
+                                <p x-show="localLLMResult" x-text="localLLMResult"
+                                   :class="localLLMSuccess ? 'text-green-400' : 'text-red-400'"
+                                   class="text-xs mt-1"></p>
+                            </div>
+                        </div>
+
+                        <div class="border-t border-gray-700 pt-2 mt-2">
+                            <p class="text-xs text-gray-500 mb-1">API Status:</p>
+                            <div class="flex flex-wrap gap-1">
+                                <span class="text-xs px-1.5 py-0.5 rounded"
+                                      :class="appSettings.local_llm?.enabled ? 'bg-purple-900 text-purple-300' : (appSettings.api_keys?.xai ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300')">
+                                    <span x-text="appSettings.local_llm?.enabled ? 'Local' : 'XAI'"></span>
+                                </span>
+                                <span class="text-xs px-1.5 py-0.5 rounded"
+                                      :class="appSettings.api_keys?.openai ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'">
+                                    OpenAI
+                                </span>
+                                <span class="text-xs px-1.5 py-0.5 rounded"
+                                      :class="appSettings.api_keys?.youtube ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'">
+                                    YouTube
+                                </span>
+                                <span class="text-xs px-1.5 py-0.5 rounded"
+                                      :class="appSettings.api_keys?.x_bearer ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'">
+                                    X
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Scheduler & Delivery -->
+                <div class="bg-gray-800 rounded-lg p-4">
+                    <h3 class="text-sm font-medium text-gray-400 mb-2">Scheduler & Delivery</h3>
+                    <div class="text-sm space-y-3">
+                        <!-- Auto-Schedule -->
+                        <div>
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-gray-500">Auto-generate:</span>
+                                <button @click="showSchedulerConfig = !showSchedulerConfig"
+                                        class="text-xs px-2 py-0.5 rounded"
+                                        :class="appSettings.scheduler?.enabled ? 'bg-green-900 text-green-300' : 'bg-gray-700 text-gray-400'">
+                                    <span x-text="appSettings.scheduler?.enabled ? 'ON' : 'OFF'"></span>
+                                    <span x-text="showSchedulerConfig ? '▲' : '▼'" class="ml-1"></span>
+                                </button>
+                            </div>
+                            <p x-show="appSettings.scheduler?.enabled && appSettings.scheduler?.time" class="text-xs text-gray-500">
+                                Daily at <span x-text="appSettings.scheduler?.time" class="text-cyan-400"></span>
+                            </p>
+
+                            <!-- Scheduler Config -->
+                            <div x-show="showSchedulerConfig" x-collapse class="mt-2 p-2 bg-gray-900 rounded space-y-2">
+                                <div class="flex items-center gap-2">
+                                    <label class="text-xs text-gray-500 w-16">Time:</label>
+                                    <input type="time" x-model="schedulerConfig.time"
+                                           class="bg-gray-700 text-white text-xs px-2 py-1 rounded border border-gray-600">
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <label class="text-xs text-gray-500 w-16">TZ:</label>
+                                    <select x-model="schedulerConfig.timezone"
+                                            class="bg-gray-700 text-white text-xs px-2 py-1 rounded border border-gray-600 flex-1">
+                                        <option value="America/Los_Angeles">Pacific</option>
+                                        <option value="America/Denver">Mountain</option>
+                                        <option value="America/Chicago">Central</option>
+                                        <option value="America/New_York">Eastern</option>
+                                        <option value="UTC">UTC</option>
+                                    </select>
+                                </div>
+                                <div class="flex gap-2 mt-2">
+                                    <button @click="saveScheduler(true)"
+                                            class="flex-1 bg-green-700 hover:bg-green-600 text-white text-xs px-2 py-1 rounded">
+                                        Enable
+                                    </button>
+                                    <button @click="saveScheduler(false)"
+                                            x-show="appSettings.scheduler?.enabled"
+                                            class="flex-1 bg-red-700 hover:bg-red-600 text-white text-xs px-2 py-1 rounded">
+                                        Disable
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Delivery Channels -->
+                        <div class="border-t border-gray-700 pt-2">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-gray-500">Deliver to:</span>
+                                <button @click="showDeliveryConfig = !showDeliveryConfig"
+                                        class="text-xs px-2 py-0.5 rounded bg-gray-700 text-gray-400">
+                                    Configure <span x-text="showDeliveryConfig ? '▲' : '▼'"></span>
+                                </button>
+                            </div>
+                            <div class="flex flex-wrap gap-1">
+                                <span class="text-xs px-1.5 py-0.5 rounded bg-green-900 text-green-300">Dashboard</span>
+                                <span x-show="appSettings.delivery?.telegram?.enabled"
+                                      class="text-xs px-1.5 py-0.5 rounded bg-blue-900 text-blue-300">Telegram</span>
+                                <span x-show="appSettings.delivery?.discord?.enabled"
+                                      class="text-xs px-1.5 py-0.5 rounded bg-indigo-900 text-indigo-300">Discord</span>
+                                <span x-show="appSettings.delivery?.email?.enabled"
+                                      class="text-xs px-1.5 py-0.5 rounded bg-amber-900 text-amber-300">Email</span>
+                            </div>
+
+                            <!-- Delivery Config -->
+                            <div x-show="showDeliveryConfig" x-collapse class="mt-2 p-2 bg-gray-900 rounded space-y-3">
+                                <!-- Telegram -->
+                                <div class="border-b border-gray-700 pb-2">
+                                    <div class="flex items-center justify-between mb-1">
+                                        <span class="text-xs font-medium text-blue-400">Telegram</span>
+                                        <input type="checkbox" x-model="deliveryConfig.telegram.enabled"
+                                               class="w-4 h-4 rounded bg-gray-700 border-gray-600">
+                                    </div>
+                                    <div x-show="deliveryConfig.telegram.enabled" class="space-y-1">
+                                        <input type="text" x-model="deliveryConfig.telegram.bot_token"
+                                               placeholder="Bot Token"
+                                               class="w-full bg-gray-700 text-white text-xs px-2 py-1 rounded border border-gray-600">
+                                        <input type="text" x-model="deliveryConfig.telegram.chat_id"
+                                               placeholder="Chat ID"
+                                               class="w-full bg-gray-700 text-white text-xs px-2 py-1 rounded border border-gray-600">
+                                        <button @click="testDelivery('telegram')"
+                                                class="text-xs bg-blue-700 hover:bg-blue-600 text-white px-2 py-0.5 rounded">
+                                            Test
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Discord -->
+                                <div class="border-b border-gray-700 pb-2">
+                                    <div class="flex items-center justify-between mb-1">
+                                        <span class="text-xs font-medium text-indigo-400">Discord</span>
+                                        <input type="checkbox" x-model="deliveryConfig.discord.enabled"
+                                               class="w-4 h-4 rounded bg-gray-700 border-gray-600">
+                                    </div>
+                                    <div x-show="deliveryConfig.discord.enabled" class="space-y-1">
+                                        <input type="text" x-model="deliveryConfig.discord.webhook_url"
+                                               placeholder="Webhook URL"
+                                               class="w-full bg-gray-700 text-white text-xs px-2 py-1 rounded border border-gray-600">
+                                        <button @click="testDelivery('discord')"
+                                                class="text-xs bg-indigo-700 hover:bg-indigo-600 text-white px-2 py-0.5 rounded">
+                                            Test
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Email (placeholder) -->
+                                <div>
+                                    <div class="flex items-center justify-between mb-1">
+                                        <span class="text-xs font-medium text-amber-400">Email</span>
+                                        <span class="text-xs text-gray-500">Coming soon</span>
+                                    </div>
+                                </div>
+
+                                <button @click="saveDelivery()"
+                                        class="w-full bg-cyan-700 hover:bg-cyan-600 text-white text-xs px-2 py-1 rounded mt-2">
+                                    Save Delivery Settings
+                                </button>
+                                <p x-show="deliveryResult" x-text="deliveryResult"
+                                   :class="deliverySuccess ? 'text-green-400' : 'text-red-400'"
+                                   class="text-xs mt-1"></p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -196,9 +549,40 @@
             <div class="lg:col-span-2">
                 <div class="bg-gray-800 rounded-lg p-6">
                     <div class="flex items-center justify-between mb-4">
-                        <h2 class="text-xl font-semibold flex items-center gap-2">
-                            <span class="text-2xl">📋</span> Latest Briefing
-                        </h2>
+                        <div class="flex items-center gap-4">
+                            <h2 class="text-xl font-semibold flex items-center gap-2">
+                                <span class="text-2xl">📋</span> Briefing
+                            </h2>
+                            <!-- History dropdown -->
+                            <div class="relative" x-show="briefingHistory.length > 1">
+                                <button
+                                    @click="showHistory = !showHistory"
+                                    class="text-sm bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded flex items-center gap-1"
+                                >
+                                    <span x-text="briefingHistory.length"></span> saved
+                                    <span x-text="showHistory ? '▲' : '▼'" class="text-xs"></span>
+                                </button>
+                                <div
+                                    x-show="showHistory"
+                                    @click.outside="showHistory = false"
+                                    class="absolute top-full left-0 mt-1 bg-gray-700 rounded shadow-lg z-10 min-w-64 max-h-64 overflow-y-auto"
+                                >
+                                    <template x-for="(b, idx) in briefingHistory" :key="b.job_id || idx">
+                                        <button
+                                            @click="selectBriefing(idx)"
+                                            class="w-full text-left px-3 py-2 hover:bg-gray-600 text-sm border-b border-gray-600 last:border-0"
+                                            :class="idx === selectedBriefingIdx ? 'bg-cyan-900/50' : ''"
+                                        >
+                                            <div class="font-medium" x-text="new Date(b.generated_at).toLocaleString()"></div>
+                                            <div class="text-xs text-gray-400">
+                                                X: <span x-text="b.stats?.items_fetched?.x || 0"></span> |
+                                                YT: <span x-text="b.stats?.items_fetched?.youtube || 0"></span>
+                                            </div>
+                                        </button>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
                         <button
                             @click="generateBriefing"
                             :disabled="generating"
@@ -209,14 +593,196 @@
                         </button>
                     </div>
 
-                    <!-- Status -->
-                    <div x-show="jobStatus" class="mb-4 p-3 rounded"
-                         :class="jobStatus === 'completed' ? 'bg-green-900/30 text-green-300' : jobStatus === 'failed' ? 'bg-red-900/30 text-red-300' : 'bg-yellow-900/30 text-yellow-300'">
-                        <div class="flex items-center gap-2">
-                            <span x-show="jobStatus === 'processing'" class="animate-spin">⟳</span>
-                            <span x-text="jobStatus === 'processing' ? jobStep : 'Status: ' + jobStatus"></span>
+                    <!-- Pipeline Progress Stepper -->
+                    <div x-show="jobStatus === 'processing'" class="mb-4 p-4 rounded bg-gray-800/50 border border-gray-700">
+                        <!-- Header with elapsed time -->
+                        <div class="flex items-center justify-between mb-4">
+                            <div>
+                                <h3 class="text-sm font-medium text-gray-300">Generating Briefing</h3>
+                                <p class="text-xs text-gray-500 mt-0.5">You can continue using the app while this runs</p>
+                            </div>
+                            <div class="text-xs text-gray-400 flex items-center gap-2">
+                                <span class="animate-pulse text-green-400">●</span>
+                                <span x-text="formatTime(jobElapsed)"></span>
+                                <span x-show="jobEta" class="text-gray-500">| ~<span x-text="formatTime(jobEta)"></span> remaining</span>
+                            </div>
                         </div>
-                        <span x-show="jobError" x-text="jobError" class="text-red-400 text-sm block mt-1"></span>
+
+                        <!-- Vertical Stepper -->
+                        <div class="space-y-1">
+                            <!-- Step 1: Fetch Media (parallel) -->
+                            <div class="flex gap-3">
+                                <div class="flex flex-col items-center">
+                                    <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium border-2 transition-all"
+                                         :class="getStepClass('fetch')">
+                                        <span x-show="getStepStatus('fetch') === 'active'" class="animate-spin text-xs">↻</span>
+                                        <span x-show="getStepStatus('fetch') === 'done'">✓</span>
+                                        <span x-show="getStepStatus('fetch') === 'pending'">1</span>
+                                        <span x-show="getStepStatus('fetch') === 'failed'">✗</span>
+                                    </div>
+                                    <div class="w-0.5 h-12 transition-colors" :class="getStepStatus('fetch') === 'done' ? 'bg-green-500' : 'bg-gray-700'"></div>
+                                </div>
+                                <div class="flex-1 pb-2">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-sm font-medium" :class="getStepStatus('fetch') === 'active' ? 'text-cyan-400' : getStepStatus('fetch') === 'done' ? 'text-green-400' : 'text-gray-400'"
+                                              x-text="getStepStatus('fetch') === 'active' ? 'Fetching Media...' : getStepStatus('fetch') === 'done' ? 'Media Fetched' : 'Fetch Media'"></span>
+                                    </div>
+                                    <!-- Media sub-progress -->
+                                    <div class="mt-2 space-y-1 text-xs" x-show="getStepStatus('fetch') === 'active' || getStepStatus('fetch') === 'done'">
+                                        <div class="flex items-center gap-2" x-show="mediaStatus.x?.status !== 'skipped'">
+                                            <span :class="{'text-green-400': mediaStatus.x?.status === 'done', 'text-cyan-400 animate-pulse': mediaStatus.x?.status === 'fetching', 'text-red-400': mediaStatus.x?.status === 'failed' || mediaStatus.x?.status === 'timeout', 'text-gray-500': mediaStatus.x?.status === 'pending'}"
+                                                  x-text="mediaStatus.x?.status === 'done' ? '✓' : mediaStatus.x?.status === 'fetching' ? '↻' : mediaStatus.x?.status === 'failed' || mediaStatus.x?.status === 'timeout' ? '✗' : '○'"></span>
+                                            <span class="text-gray-400">X Posts</span>
+                                            <span class="text-gray-500" x-show="mediaStatus.x?.status === 'done'" x-text="'(' + (mediaStatus.x?.count || 0) + ')'"></span>
+                                            <span class="text-red-400 text-xs" x-show="mediaStatus.x?.error" x-text="mediaStatus.x?.error"></span>
+                                        </div>
+                                        <div class="flex items-center gap-2" x-show="mediaStatus.youtube?.status !== 'skipped'">
+                                            <span :class="{'text-green-400': mediaStatus.youtube?.status === 'done', 'text-red-500 animate-pulse': mediaStatus.youtube?.status === 'fetching', 'text-red-400': mediaStatus.youtube?.status === 'failed' || mediaStatus.youtube?.status === 'timeout', 'text-gray-500': mediaStatus.youtube?.status === 'pending'}"
+                                                  x-text="mediaStatus.youtube?.status === 'done' ? '✓' : mediaStatus.youtube?.status === 'fetching' ? '↻' : mediaStatus.youtube?.status === 'failed' || mediaStatus.youtube?.status === 'timeout' ? '✗' : '○'"></span>
+                                            <span class="text-gray-400">YouTube</span>
+                                            <span class="text-gray-500" x-show="mediaStatus.youtube?.status === 'done'" x-text="'(' + (mediaStatus.youtube?.count || 0) + ')'"></span>
+                                            <span class="text-red-400 text-xs" x-show="mediaStatus.youtube?.error" x-text="mediaStatus.youtube?.error"></span>
+                                        </div>
+                                        <div class="flex flex-col gap-1" x-show="mediaStatus.podcasts?.status !== 'skipped'">
+                                            <div class="flex items-center gap-2">
+                                                <span :class="{'text-green-400': mediaStatus.podcasts?.status === 'done', 'text-purple-400 animate-pulse': mediaStatus.podcasts?.status === 'fetching', 'text-red-400': mediaStatus.podcasts?.status === 'failed' || mediaStatus.podcasts?.status === 'timeout', 'text-gray-500': mediaStatus.podcasts?.status === 'pending'}"
+                                                      x-text="mediaStatus.podcasts?.status === 'done' ? '✓' : mediaStatus.podcasts?.status === 'fetching' ? '↻' : mediaStatus.podcasts?.status === 'failed' || mediaStatus.podcasts?.status === 'timeout' ? '✗' : '○'"></span>
+                                                <span class="text-gray-400">Podcasts</span>
+                                                <span class="text-gray-500" x-show="mediaStatus.podcasts?.status === 'done'" x-text="'(' + (mediaStatus.podcasts?.count || 0) + ')'"></span>
+                                                <span class="text-red-400 text-xs" x-show="mediaStatus.podcasts?.error" x-text="mediaStatus.podcasts?.error"></span>
+                                            </div>
+                                            <!-- Detailed podcast progress -->
+                                            <div x-show="mediaStatus.podcasts?.status === 'fetching' && mediaStatus.podcasts?.stage" class="ml-6 text-xs space-y-1">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="text-purple-300"
+                                                          x-text="mediaStatus.podcasts?.stage === 'fetching_episodes' ? 'Fetching episodes...' :
+                                                                  mediaStatus.podcasts?.stage === 'transcribing' ? 'Transcribing...' :
+                                                                  mediaStatus.podcasts?.stage === 'processing' ? 'Processing...' :
+                                                                  mediaStatus.podcasts?.stage"></span>
+                                                    <span class="text-gray-500" x-show="mediaStatus.podcasts?.episode_total > 0"
+                                                          x-text="'(' + (mediaStatus.podcasts?.episode_current || 0) + '/' + mediaStatus.podcasts?.episode_total + ')'"></span>
+                                                </div>
+                                                <div x-show="mediaStatus.podcasts?.current_podcast" class="text-gray-400 truncate max-w-[200px]"
+                                                     x-text="mediaStatus.podcasts?.current_podcast"></div>
+                                                <div x-show="mediaStatus.podcasts?.current_episode && mediaStatus.podcasts?.stage === 'transcribing'"
+                                                     class="text-gray-500 truncate max-w-[200px] italic"
+                                                     x-text="mediaStatus.podcasts?.current_episode"></div>
+                                            </div>
+                                        </div>
+                                        <!-- Fetch progress bar showing completed sources -->
+                                        <div class="mt-2 w-full" x-show="getStepStatus('fetch') === 'active'">
+                                            <div class="h-1.5 bg-gray-700 rounded-full overflow-hidden">
+                                                <div class="h-full bg-gradient-to-r from-cyan-500 via-red-500 to-purple-500 transition-all duration-300 ease-out rounded-full"
+                                                     :style="'width: ' + (((mediaStatus.x?.status === 'done' || mediaStatus.x?.status === 'failed' || mediaStatus.x?.status === 'timeout' || mediaStatus.x?.status === 'skipped' ? 1 : 0) + (mediaStatus.youtube?.status === 'done' || mediaStatus.youtube?.status === 'failed' || mediaStatus.youtube?.status === 'timeout' || mediaStatus.youtube?.status === 'skipped' ? 1 : 0) + (mediaStatus.podcasts?.status === 'done' || mediaStatus.podcasts?.status === 'failed' || mediaStatus.podcasts?.status === 'timeout' || mediaStatus.podcasts?.status === 'skipped' ? 1 : 0)) / 3 * 100) + '%'"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Step 2: Archive -->
+                            <div class="flex gap-3">
+                                <div class="flex flex-col items-center">
+                                    <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium border-2 transition-all"
+                                         :class="getStepClass('archive')">
+                                        <span x-show="getStepStatus('archive') === 'active'" class="animate-spin text-xs">↻</span>
+                                        <span x-show="getStepStatus('archive') === 'done'">✓</span>
+                                        <span x-show="getStepStatus('archive') === 'pending'">2</span>
+                                    </div>
+                                    <div class="w-0.5 h-8 transition-colors" :class="getStepStatus('archive') === 'done' ? 'bg-green-500' : 'bg-gray-700'"></div>
+                                </div>
+                                <div class="flex-1 pb-2">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-sm" :class="getStepStatus('archive') === 'active' ? 'text-cyan-400' : getStepStatus('archive') === 'done' ? 'text-green-400' : 'text-gray-500'"
+                                              x-text="getStepStatus('archive') === 'active' ? 'Archiving to Vector Store...' : getStepStatus('archive') === 'done' ? 'Archived' : 'Archive Data'"></span>
+                                        <span x-show="getStepStatus('archive') === 'active' && jobProgress.total > 0" class="text-xs text-gray-500" x-text="jobProgress.current + '/' + jobProgress.total"></span>
+                                    </div>
+                                    <!-- Progress bar for Archive -->
+                                    <div x-show="getStepStatus('archive') === 'active' && jobProgress.total > 0" class="mt-2 w-full">
+                                        <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
+                                            <div class="h-full bg-cyan-500 transition-all duration-300 ease-out rounded-full"
+                                                 :style="'width: ' + Math.min(100, Math.round((jobProgress.current / jobProgress.total) * 100)) + '%'"></div>
+                                        </div>
+                                        <div class="text-xs text-gray-500 mt-1" x-text="Math.round((jobProgress.current / jobProgress.total) * 100) + '% (' + jobProgress.current + '/' + jobProgress.total + ')'"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Step 3: Summarize Transcripts -->
+                            <div class="flex gap-3">
+                                <div class="flex flex-col items-center">
+                                    <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium border-2 transition-all"
+                                         :class="getStepClass('summarize_transcripts')">
+                                        <span x-show="getStepStatus('summarize_transcripts') === 'active'" class="animate-spin text-xs">↻</span>
+                                        <span x-show="getStepStatus('summarize_transcripts') === 'done'">✓</span>
+                                        <span x-show="getStepStatus('summarize_transcripts') === 'pending'">3</span>
+                                    </div>
+                                    <div class="w-0.5 h-8 transition-colors" :class="getStepStatus('summarize_transcripts') === 'done' ? 'bg-green-500' : 'bg-gray-700'"></div>
+                                </div>
+                                <div class="flex-1 pb-2">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-sm" :class="getStepStatus('summarize_transcripts') === 'active' ? 'text-cyan-400' : getStepStatus('summarize_transcripts') === 'done' ? 'text-green-400' : 'text-gray-500'"
+                                              x-text="getStepStatus('summarize_transcripts') === 'active' ? 'Summarizing Transcripts...' : getStepStatus('summarize_transcripts') === 'done' ? 'Transcripts Summarized' : 'Summarize Transcripts'"></span>
+                                        <span x-show="getStepStatus('summarize_transcripts') === 'active' && jobProgress.total > 0" class="text-xs text-gray-500" x-text="jobProgress.current + '/' + jobProgress.total"></span>
+                                    </div>
+                                    <!-- Progress bar for Transcript Summarization -->
+                                    <div x-show="getStepStatus('summarize_transcripts') === 'active' && jobProgress.total > 0" class="mt-2 w-full">
+                                        <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
+                                            <div class="h-full bg-cyan-500 transition-all duration-300 ease-out rounded-full"
+                                                 :style="'width: ' + Math.min(100, Math.round((jobProgress.current / jobProgress.total) * 100)) + '%'"></div>
+                                        </div>
+                                        <div class="text-xs text-gray-500 mt-1" x-text="Math.round((jobProgress.current / jobProgress.total) * 100) + '% (' + jobProgress.current + '/' + jobProgress.total + ')'"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Step 4: Generate Summary -->
+                            <div class="flex gap-3">
+                                <div class="flex flex-col items-center">
+                                    <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium border-2 transition-all"
+                                         :class="getStepClass('generate_summary')">
+                                        <span x-show="getStepStatus('generate_summary') === 'active'" class="animate-spin text-xs">↻</span>
+                                        <span x-show="getStepStatus('generate_summary') === 'done'">✓</span>
+                                        <span x-show="getStepStatus('generate_summary') === 'pending'">4</span>
+                                    </div>
+                                    <div class="w-0.5 h-8 transition-colors" :class="getStepStatus('generate_summary') === 'done' ? 'bg-green-500' : 'bg-gray-700'"></div>
+                                </div>
+                                <div class="flex-1 pb-2">
+                                    <span class="text-sm" :class="getStepStatus('generate_summary') === 'active' ? 'text-cyan-400' : getStepStatus('generate_summary') === 'done' ? 'text-green-400' : 'text-gray-500'"
+                                          x-text="getStepStatus('generate_summary') === 'active' ? 'Generating AI Summary...' : getStepStatus('generate_summary') === 'done' ? 'Summary Generated' : 'Generate Summary'"></span>
+                                </div>
+                            </div>
+
+                            <!-- Step 5: Recommendations -->
+                            <div class="flex gap-3">
+                                <div class="flex flex-col items-center">
+                                    <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium border-2 transition-all"
+                                         :class="getStepClass('recommendations')">
+                                        <span x-show="getStepStatus('recommendations') === 'active'" class="animate-spin text-xs">↻</span>
+                                        <span x-show="getStepStatus('recommendations') === 'done'">✓</span>
+                                        <span x-show="getStepStatus('recommendations') === 'pending'">5</span>
+                                    </div>
+                                </div>
+                                <div class="flex-1">
+                                    <span class="text-sm" :class="getStepStatus('recommendations') === 'active' ? 'text-cyan-400' : getStepStatus('recommendations') === 'done' ? 'text-green-400' : 'text-gray-500'"
+                                          x-text="getStepStatus('recommendations') === 'active' ? 'Creating Recommendations...' : getStepStatus('recommendations') === 'done' ? 'Complete!' : 'Create Recommendations'"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Error display -->
+                        <div x-show="jobError" class="mt-3 p-2 bg-red-900/30 border border-red-700 rounded text-red-400 text-sm">
+                            <span class="font-medium">Error:</span> <span x-text="jobError"></span>
+                        </div>
+                    </div>
+
+                    <!-- Completed/Failed Status Banner -->
+                    <div x-show="jobStatus === 'completed'" class="mb-4 p-3 rounded bg-green-900/30 text-green-300 flex items-center gap-2">
+                        <span>✓</span> Briefing generated successfully!
+                    </div>
+                    <div x-show="jobStatus === 'failed'" class="mb-4 p-3 rounded bg-red-900/30 text-red-300">
+                        <div class="flex items-center gap-2"><span>✗</span> Generation failed</div>
+                        <span x-show="jobError" x-text="jobError" class="text-xs block mt-1"></span>
                     </div>
 
                     <!-- Briefing Content -->
@@ -224,10 +790,22 @@
                         <div>
                             <div class="text-sm text-gray-400 mb-4 flex flex-wrap gap-4">
                                 <span>Generated: <span x-text="new Date(latestBriefing.generated_at).toLocaleString()"></span></span>
+                                <span x-show="latestBriefing.stats?.pipeline_duration_seconds" class="text-cyan-400">
+                                    (<span x-text="formatTime(latestBriefing.stats?.pipeline_duration_seconds)"></span>)
+                                </span>
+                                <span x-show="latestBriefing.categories" class="text-indigo-400">
+                                    📁 <span x-text="latestBriefing.categories?.join(', ')"></span>
+                                </span>
                                 <span>X: <span x-text="latestBriefing.stats?.items_fetched?.x || 0"></span></span>
                                 <span>YouTube: <span x-text="latestBriefing.stats?.items_fetched?.youtube || 0"></span></span>
                                 <span x-show="latestBriefing.stats?.transcripts_fetched" class="text-green-400">
                                     📝 <span x-text="latestBriefing.stats?.transcripts_fetched || 0"></span> transcripts
+                                </span>
+                                <span x-show="latestBriefing.stats?.items_stored_vectorstore" class="text-purple-400">
+                                    💾 <span x-text="latestBriefing.stats?.items_stored_vectorstore || 0"></span> archived
+                                </span>
+                                <span x-show="latestBriefing.stats?.transcripts_summarized" class="text-amber-400">
+                                    📜 <span x-text="latestBriefing.stats?.transcripts_summarized || 0"></span> transcripts summarized
                                 </span>
                             </div>
 
@@ -239,29 +817,53 @@
                                     <h3 class="text-lg font-medium mb-3">Top Posts</h3>
                                     <div class="space-y-3">
                                         <template x-for="item in latestBriefing.items.slice(0, 8)" :key="item.platform_id">
-                                            <div class="bg-gray-700/50 rounded p-3">
+                                            <div class="bg-gray-700/50 rounded p-3 transition-colors"
+                                                 :class="(item.platform === 'youtube' || item.platform === 'podcast') ? 'hover:bg-gray-700 cursor-pointer' : ''"
+                                                 @click="(item.platform === 'youtube' || item.platform === 'podcast') && openItemDetail(item)">
                                                 <div class="flex items-start justify-between">
                                                     <div class="flex items-center gap-2">
                                                         <span x-show="item.platform === 'x'" class="text-lg">𝕏</span>
                                                         <span x-show="item.platform === 'youtube'" class="text-lg text-red-500">▶</span>
+                                                        <span x-show="item.platform === 'podcast'" class="text-lg">🎙️</span>
                                                         <span class="font-medium text-cyan-400" x-text="item.source_name || item.source"></span>
                                                     </div>
-                                                    <div class="text-xs text-gray-400">
+                                                    <div class="text-xs text-gray-400 flex items-center gap-2">
                                                         <template x-if="item.platform === 'x'">
                                                             <span>❤️ <span x-text="item.metrics?.like_count || 0"></span></span>
                                                         </template>
                                                         <template x-if="item.platform === 'youtube'">
-                                                            <span>
-                                                                <span x-show="item.metrics?.has_transcript" class="text-green-400 mr-1" title="Transcript available">📝</span>
-                                                                👁 <span x-text="(item.metrics?.view_count || 0).toLocaleString()"></span>
+                                                            <span class="flex items-center gap-2">
+                                                                <span x-show="item.metrics?.has_summary" class="text-purple-400" title="AI Summary available">🤖</span>
+                                                                <span x-show="item.metrics?.has_transcript && !item.metrics?.has_summary" class="text-green-400" title="Transcript available">📝</span>
+                                                                <span>👁 <span x-text="(item.metrics?.view_count || 0).toLocaleString()"></span></span>
                                                             </span>
                                                         </template>
+                                                        <template x-if="item.platform === 'podcast'">
+                                                            <span class="flex items-center gap-2">
+                                                                <span x-show="item.metrics?.transcript_status === 'available'" class="text-green-400" title="Transcript available">📝</span>
+                                                                <span x-show="item.metrics?.transcript_status === 'audio_only'" class="text-yellow-400" title="Local transcription">🎤</span>
+                                                            </span>
+                                                        </template>
+                                                        <!-- Drill-down indicator for YouTube/Podcasts -->
+                                                        <span x-show="item.platform === 'youtube' || item.platform === 'podcast'"
+                                                              class="text-gray-500 hover:text-cyan-400" title="Click for details">
+                                                            ⤢
+                                                        </span>
                                                     </div>
                                                 </div>
-                                                <p class="mt-2 text-sm line-clamp-3" x-text="item.content"></p>
-                                                <a :href="item.url" target="_blank" class="text-cyan-400 text-xs hover:underline mt-1 inline-block">
-                                                    View <span x-text="item.platform === 'youtube' ? 'on YouTube' : 'on X'"></span> →
-                                                </a>
+                                                <p class="mt-2 text-sm line-clamp-3" x-text="item.content?.split('[AI Summary]:')?.[0] || item.content"></p>
+                                                <div class="flex items-center justify-between mt-2">
+                                                    <span x-show="item.platform === 'youtube' || item.platform === 'podcast'"
+                                                          class="text-purple-400 text-xs cursor-pointer hover:underline"
+                                                          @click.stop="openItemDetail(item)">
+                                                        View Summary →
+                                                    </span>
+                                                    <a :href="item.url" target="_blank"
+                                                       @click.stop
+                                                       class="text-cyan-400 text-xs hover:underline">
+                                                        <span x-text="item.platform === 'youtube' ? 'YouTube' : item.platform === 'podcast' ? 'Listen' : 'View on X'"></span> ↗
+                                                    </a>
+                                                </div>
                                             </div>
                                         </template>
                                     </div>
@@ -283,6 +885,127 @@
         <div class="mt-8 text-center text-gray-500 text-sm">
             Briefly 3000 • Powered by Grok 4.1
         </div>
+
+        <!-- Item Detail Modal -->
+        <div x-show="showItemModal" x-cloak
+             class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+             @click.self="closeItemModal()"
+             @keydown.escape.window="closeItemModal()">
+            <div class="bg-gray-800 rounded-lg max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+                <!-- Modal Header -->
+                <div class="p-4 border-b border-gray-700 flex items-start justify-between">
+                    <div class="flex items-center gap-3 flex-1 min-w-0">
+                        <span x-show="selectedItem?.platform === 'youtube'" class="text-2xl text-red-500 flex-shrink-0">▶</span>
+                        <span x-show="selectedItem?.platform === 'podcast'" class="text-2xl flex-shrink-0">🎙️</span>
+                        <span x-show="selectedItem?.platform === 'x'" class="text-2xl flex-shrink-0">𝕏</span>
+                        <div class="min-w-0">
+                            <h3 class="font-semibold text-lg text-cyan-400 truncate" x-text="selectedItem?.source_name || selectedItem?.source"></h3>
+                            <p class="text-xs text-gray-400" x-text="selectedItem?.posted_at ? new Date(selectedItem.posted_at).toLocaleString() : ''"></p>
+                        </div>
+                    </div>
+                    <button @click="closeItemModal()" class="text-gray-400 hover:text-white text-2xl px-2">&times;</button>
+                </div>
+
+                <!-- Modal Body -->
+                <div class="flex-1 overflow-y-auto p-4 space-y-4">
+                    <!-- Metrics -->
+                    <div class="flex flex-wrap gap-3 text-sm">
+                        <template x-if="selectedItem?.platform === 'youtube'">
+                            <div class="flex gap-3">
+                                <span class="text-gray-400">👁 <span x-text="(selectedItem?.metrics?.view_count || 0).toLocaleString()"></span> views</span>
+                                <span class="text-gray-400">❤️ <span x-text="(selectedItem?.metrics?.like_count || 0).toLocaleString()"></span> likes</span>
+                                <span class="text-gray-400">💬 <span x-text="(selectedItem?.metrics?.comment_count || 0).toLocaleString()"></span> comments</span>
+                                <span x-show="selectedItem?.metrics?.has_summary" class="text-green-400">✓ AI Summary</span>
+                                <span x-show="selectedItem?.metrics?.has_transcript && !selectedItem?.metrics?.has_summary" class="text-yellow-400">📝 Transcript</span>
+                            </div>
+                        </template>
+                        <template x-if="selectedItem?.platform === 'podcast'">
+                            <div class="flex gap-3">
+                                <span x-show="selectedItem?.metrics?.duration_seconds" class="text-gray-400">
+                                    ⏱️ <span x-text="Math.round((selectedItem?.metrics?.duration_seconds || 0) / 60)"></span> min
+                                </span>
+                                <span x-show="selectedItem?.metrics?.transcript_status === 'available'" class="text-green-400">✓ Taddy Transcript</span>
+                                <span x-show="selectedItem?.metrics?.transcript_status === 'audio_only'" class="text-yellow-400">🎤 Local Transcription</span>
+                            </div>
+                        </template>
+                        <template x-if="selectedItem?.platform === 'x'">
+                            <div class="flex gap-3">
+                                <span class="text-gray-400">❤️ <span x-text="(selectedItem?.metrics?.like_count || 0).toLocaleString()"></span></span>
+                                <span class="text-gray-400">🔄 <span x-text="(selectedItem?.metrics?.retweet_count || 0).toLocaleString()"></span></span>
+                            </div>
+                        </template>
+                    </div>
+
+                    <!-- Content sections -->
+                    <template x-if="selectedItem">
+                        <div class="space-y-4">
+                            <!-- Check if content has AI summary -->
+                            <template x-if="selectedItem?.content?.includes('[AI Summary]:')">
+                                <div class="space-y-4">
+                                    <!-- Original Description -->
+                                    <div>
+                                        <h4 class="text-sm font-medium text-gray-400 mb-2">Description</h4>
+                                        <div class="bg-gray-700/50 rounded p-3 text-sm whitespace-pre-wrap"
+                                             x-html="linkifyText(stripHtml(parseItemContent(selectedItem.content).description))"></div>
+                                    </div>
+
+                                    <!-- AI Summary -->
+                                    <div>
+                                        <h4 class="text-sm font-medium text-purple-400 mb-2 flex items-center gap-2">
+                                            <span>🤖</span> AI Summary
+                                        </h4>
+                                        <div class="bg-purple-900/30 border border-purple-700/50 rounded p-3 text-sm whitespace-pre-wrap"
+                                             x-text="parseItemContent(selectedItem.content).summary"></div>
+                                    </div>
+
+                                    <!-- Key Points -->
+                                    <template x-if="parseItemContent(selectedItem.content).keyPoints.length > 0">
+                                        <div>
+                                            <h4 class="text-sm font-medium text-cyan-400 mb-2">Key Points</h4>
+                                            <ul class="space-y-2">
+                                                <template x-for="(point, idx) in parseItemContent(selectedItem.content).keyPoints" :key="idx">
+                                                    <li class="flex items-start gap-2 text-sm bg-gray-700/30 rounded p-2">
+                                                        <span class="text-cyan-400 flex-shrink-0">•</span>
+                                                        <span x-text="point"></span>
+                                                    </li>
+                                                </template>
+                                            </ul>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+
+                            <!-- No AI summary - show content (strip HTML, linkify URLs) -->
+                            <template x-if="!selectedItem?.content?.includes('[AI Summary]:')">
+                                <div>
+                                    <h4 class="text-sm font-medium text-gray-400 mb-2">Content</h4>
+                                    <div class="bg-gray-700/50 rounded p-3 text-sm whitespace-pre-wrap"
+                                         x-html="linkifyText(stripHtml(selectedItem?.content || ''))"></div>
+                                    <p x-show="selectedItem?.platform === 'podcast' || selectedItem?.platform === 'youtube'" class="text-xs text-yellow-500 mt-2">
+                                        ⚠️ No AI summary available - showing description only
+                                    </p>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Modal Footer -->
+                <div class="p-4 border-t border-gray-700 flex justify-between items-center">
+                    <span class="text-xs text-gray-500">Score: <span x-text="selectedItem?.score?.toFixed(1)"></span></span>
+                    <div class="flex gap-2">
+                        <button @click="closeItemModal()" class="px-4 py-2 text-sm bg-gray-700 hover:bg-gray-600 rounded">
+                            Close
+                        </button>
+                        <a :href="selectedItem?.url" target="_blank"
+                           class="px-4 py-2 text-sm bg-cyan-600 hover:bg-cyan-500 rounded inline-flex items-center gap-1">
+                            <span x-text="selectedItem?.platform === 'youtube' ? 'Watch on YouTube' : selectedItem?.platform === 'podcast' ? 'Listen to Episode' : 'View on X'"></span>
+                            <span>→</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -303,7 +1026,18 @@
                 jobStatus: null,
                 jobStep: '',
                 jobError: null,
+                jobProgress: { current: 0, total: 0 },
+                jobElapsed: 0,
+                jobEta: null,
+                mediaStatus: {
+                    x: { status: 'pending', count: 0, sources: 0 },
+                    youtube: { status: 'pending', count: 0, sources: 0 },
+                    podcasts: { status: 'pending', count: 0, sources: 0 }
+                },
                 latestBriefing: null,
+                briefingHistory: [],
+                showHistory: false,
+                selectedBriefingIdx: 0,
                 transcriptStats: {},
                 processingTranscripts: false,
                 transcriptResult: '',
@@ -312,13 +1046,169 @@
                 searching: false,
                 searchError: '',
                 vectorStats: {},
+                appSettings: {},
+                showLocalLLMConfig: false,
+                localLLMConfig: { base_url: 'http://localhost:1234/v1', model: 'local-model', api_key: 'not-needed' },
+                testingLocalLLM: false,
+                savingLocalLLM: false,
+                localLLMResult: '',
+                localLLMSuccess: false,
+                showSchedulerConfig: false,
+                schedulerConfig: { time: '08:00', timezone: 'America/Los_Angeles', category_ids: null },
+                showDeliveryConfig: false,
+                deliveryConfig: {
+                    telegram: { enabled: false, bot_token: '', chat_id: '' },
+                    discord: { enabled: false, webhook_url: '' },
+                    email: { enabled: false, address: '' }
+                },
+                deliveryResult: '',
+                deliverySuccess: false,
+                categories: [],
+                categoryPresets: [],
+                podcasts: [],
+                podcastsConfigured: false,
+                podcastSearchQuery: '',
+                podcastSearchResults: [],
+                searchingPodcasts: false,
+                podcastError: '',
+                podcastTranscriptStatus: {},
+                // Drill-down modal
+                selectedItem: null,
+                showItemModal: false,
 
                 async init() {
                     await this.loadSources();
                     await this.loadCacheStats();
-                    await this.loadLatestBriefing();
+                    await this.loadBriefingHistory();
                     await this.loadTranscriptStats();
                     await this.loadVectorStats();
+                    await this.loadSettings();
+                    await this.loadCategories();
+                    await this.loadCategoryPresets();
+                    await this.loadPodcasts();
+                },
+
+                formatTime(seconds) {
+                    if (!seconds || seconds < 0) return '0s';
+                    const mins = Math.floor(seconds / 60);
+                    const secs = Math.floor(seconds % 60);
+                    if (mins > 0) return `${mins}m ${secs}s`;
+                    return `${secs}s`;
+                },
+
+                // Pipeline step status helpers
+                getStepStatus(stepId) {
+                    const step = this.jobStep?.toLowerCase() || '';
+                    const mediaAllDone = ['done', 'failed', 'timeout', 'skipped'].includes(this.mediaStatus.x?.status) &&
+                                         ['done', 'failed', 'timeout', 'skipped'].includes(this.mediaStatus.youtube?.status) &&
+                                         ['done', 'failed', 'timeout', 'skipped'].includes(this.mediaStatus.podcasts?.status);
+                    const mediaAnyFetching = this.mediaStatus.x?.status === 'fetching' ||
+                                             this.mediaStatus.youtube?.status === 'fetching' ||
+                                             this.mediaStatus.podcasts?.status === 'fetching';
+
+                    switch (stepId) {
+                        case 'fetch':
+                            if (mediaAllDone) return 'done';
+                            if (mediaAnyFetching || step.includes('fetch')) return 'active';
+                            return 'pending';
+                        case 'archive':
+                            if (step.includes('summar') || step.includes('generat') || step.includes('recommend') || step.includes('completed')) return 'done';
+                            if (step.includes('archiv')) return 'active';
+                            if (mediaAllDone) return 'pending';
+                            return 'pending';
+                        case 'summarize_transcripts':
+                            if (step.includes('generating ai') || step.includes('recommend') || step.includes('completed')) return 'done';
+                            if (step.includes('summar') && step.includes('transcript')) return 'active';
+                            if (step.includes('archiv') || !mediaAllDone) return 'pending';
+                            return 'pending';
+                        case 'generate_summary':
+                            if (step.includes('recommend') || step.includes('completed')) return 'done';
+                            if (step.includes('generating ai') || step.includes('ai summary')) return 'active';
+                            return 'pending';
+                        case 'recommendations':
+                            if (step.includes('completed')) return 'done';
+                            if (step.includes('recommend')) return 'active';
+                            return 'pending';
+                        default:
+                            return 'pending';
+                    }
+                },
+
+                getStepClass(stepId) {
+                    const status = this.getStepStatus(stepId);
+                    switch (status) {
+                        case 'done':
+                            return 'border-green-500 bg-green-500/20 text-green-400';
+                        case 'active':
+                            return 'border-cyan-500 bg-cyan-500/20 text-cyan-400';
+                        case 'failed':
+                            return 'border-red-500 bg-red-500/20 text-red-400';
+                        default:
+                            return 'border-gray-600 bg-gray-700 text-gray-500';
+                    }
+                },
+
+                // Parse content to separate description from AI summary
+                parseItemContent(content) {
+                    if (!content) return { description: '', summary: '', keyPoints: [] };
+
+                    const summaryMarker = '[AI Summary]:';
+                    const summaryIdx = content.indexOf(summaryMarker);
+
+                    if (summaryIdx === -1) {
+                        return { description: content.trim(), summary: '', keyPoints: [] };
+                    }
+
+                    const description = content.substring(0, summaryIdx).trim();
+                    let summaryText = content.substring(summaryIdx + summaryMarker.length).trim();
+
+                    // Extract key points if present
+                    const keyPointsMarker = 'Key points:';
+                    const keyPointsIdx = summaryText.indexOf(keyPointsMarker);
+                    let keyPoints = [];
+                    let mainSummary = summaryText;
+
+                    if (keyPointsIdx !== -1) {
+                        mainSummary = summaryText.substring(0, keyPointsIdx).trim();
+                        const keyPointsSection = summaryText.substring(keyPointsIdx + keyPointsMarker.length);
+                        // Parse bullet points (• or -)
+                        keyPoints = keyPointsSection
+                            .split(/[\u2022\-]/)
+                            .map(p => p.trim())
+                            .filter(p => p.length > 0);
+                    }
+
+                    return { description, summary: mainSummary, keyPoints };
+                },
+
+                openItemDetail(item) {
+                    this.selectedItem = item;
+                    this.showItemModal = true;
+                },
+
+                closeItemModal() {
+                    this.showItemModal = false;
+                    this.selectedItem = null;
+                },
+
+                // Strip HTML tags from content
+                stripHtml(text) {
+                    if (!text) return '';
+                    // Create temporary element to decode HTML entities
+                    const tmp = document.createElement('div');
+                    tmp.innerHTML = text;
+                    return tmp.textContent || tmp.innerText || '';
+                },
+
+                // Convert URLs in text to clickable links
+                linkifyText(text) {
+                    if (!text) return '';
+                    // Match URLs (http, https, or just www.)
+                    const urlRegex = /(https?:\/\/[^\s<]+[^\s<.,;:!?'")}\]]|www\.[^\s<]+[^\s<.,;:!?'")}\]])/g;
+                    return text.replace(urlRegex, (url) => {
+                        const href = url.startsWith('www.') ? 'https://' + url : url;
+                        return `<a href="${href}" target="_blank" class="text-cyan-400 hover:underline break-all">${url}</a>`;
+                    });
                 },
 
                 async loadSources() {
@@ -335,11 +1225,23 @@
                     } catch (e) { console.error(e); }
                 },
 
-                async loadLatestBriefing() {
+                async loadBriefingHistory() {
                     try {
-                        const resp = await fetch('/api/briefings/latest');
-                        if (resp.ok) this.latestBriefing = await resp.json();
+                        const resp = await fetch('/api/briefings');
+                        if (resp.ok) {
+                            this.briefingHistory = await resp.json();
+                            if (this.briefingHistory.length > 0) {
+                                this.latestBriefing = this.briefingHistory[0];
+                                this.selectedBriefingIdx = 0;
+                            }
+                        }
                     } catch (e) { console.error(e); }
+                },
+
+                selectBriefing(idx) {
+                    this.selectedBriefingIdx = idx;
+                    this.latestBriefing = this.briefingHistory[idx];
+                    this.showHistory = false;
                 },
 
                 async loadTranscriptStats() {
@@ -354,6 +1256,344 @@
                         const resp = await fetch('/api/search/stats');
                         if (resp.ok) this.vectorStats = await resp.json();
                     } catch (e) { console.error(e); }
+                },
+
+                async loadSettings() {
+                    try {
+                        const resp = await fetch('/api/settings');
+                        if (resp.ok) {
+                            this.appSettings = await resp.json();
+                            // Populate local LLM config from settings
+                            if (this.appSettings.local_llm) {
+                                this.localLLMConfig.base_url = this.appSettings.local_llm.base_url || 'http://localhost:1234/v1';
+                                this.localLLMConfig.model = this.appSettings.local_llm.model || 'local-model';
+                            }
+                            // Populate scheduler config
+                            if (this.appSettings.scheduler) {
+                                this.schedulerConfig.time = this.appSettings.scheduler.time || '08:00';
+                                this.schedulerConfig.timezone = this.appSettings.scheduler.timezone || 'America/Los_Angeles';
+                                this.schedulerConfig.category_ids = this.appSettings.scheduler.category_ids;
+                            }
+                            // Populate delivery config
+                            if (this.appSettings.delivery) {
+                                if (this.appSettings.delivery.telegram) {
+                                    this.deliveryConfig.telegram = { ...this.deliveryConfig.telegram, ...this.appSettings.delivery.telegram };
+                                }
+                                if (this.appSettings.delivery.discord) {
+                                    this.deliveryConfig.discord = { ...this.deliveryConfig.discord, ...this.appSettings.delivery.discord };
+                                }
+                                if (this.appSettings.delivery.email) {
+                                    this.deliveryConfig.email = { ...this.deliveryConfig.email, ...this.appSettings.delivery.email };
+                                }
+                            }
+                        }
+                    } catch (e) { console.error(e); }
+                },
+
+                async testLocalLLM() {
+                    this.testingLocalLLM = true;
+                    this.localLLMResult = '';
+
+                    // Use AbortController for timeout
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout
+
+                    try {
+                        const resp = await fetch('/api/settings/local-llm/test', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.localLLMConfig),
+                            signal: controller.signal
+                        });
+                        clearTimeout(timeoutId);
+
+                        // Check HTTP status first
+                        if (!resp.ok) {
+                            const text = await resp.text();
+                            this.localLLMSuccess = false;
+                            this.localLLMResult = `HTTP ${resp.status}: ${text.slice(0, 200)}`;
+                            return;
+                        }
+
+                        const result = await resp.json();
+                        console.log('LLM test response:', result);
+
+                        this.localLLMSuccess = result.success === true;
+                        if (result.success) {
+                            this.localLLMResult = `Connected! Response: ${result.response || '(no response)'}`;
+                        } else {
+                            // Show detailed error - handle various formats
+                            const errorMsg = result.error || result.detail || result.message || JSON.stringify(result);
+                            this.localLLMResult = `Failed: ${errorMsg}`;
+                            if (result.details) {
+                                console.log('LLM Test Error Details:', result.details);
+                            }
+                        }
+                    } catch (e) {
+                        clearTimeout(timeoutId);
+                        this.localLLMSuccess = false;
+                        if (e.name === 'AbortError') {
+                            this.localLLMResult = `Timeout: Server took too long (>20s). Is it running?`;
+                        } else {
+                            this.localLLMResult = `Network error: ${e.message || e.toString()}`;
+                        }
+                        console.error('LLM Test Error:', e);
+                    } finally {
+                        this.testingLocalLLM = false;
+                    }
+                },
+
+                async saveLocalLLM(enabled) {
+                    this.savingLocalLLM = true;
+                    this.localLLMResult = '';
+                    try {
+                        const resp = await fetch('/api/settings/local-llm', {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ ...this.localLLMConfig, enabled })
+                        });
+                        const result = await resp.json();
+                        this.localLLMSuccess = true;
+                        this.localLLMResult = enabled ? 'Local LLM enabled!' : 'Using cloud LLM';
+                        await this.loadSettings();
+                    } catch (e) {
+                        this.localLLMSuccess = false;
+                        this.localLLMResult = 'Failed to save';
+                    } finally {
+                        this.savingLocalLLM = false;
+                    }
+                },
+
+                async saveScheduler(enabled) {
+                    try {
+                        const resp = await fetch('/api/settings/scheduler', {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                enabled,
+                                schedule_type: 'daily',
+                                time: this.schedulerConfig.time,
+                                interval_hours: 24,
+                                timezone: this.schedulerConfig.timezone,
+                                category_ids: this.schedulerConfig.category_ids
+                            })
+                        });
+                        await this.loadSettings();
+                    } catch (e) {
+                        console.error('Failed to save scheduler:', e);
+                    }
+                },
+
+                async saveDelivery() {
+                    this.deliveryResult = '';
+                    try {
+                        const resp = await fetch('/api/settings/delivery', {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                dashboard: true,
+                                telegram: this.deliveryConfig.telegram.enabled ? this.deliveryConfig.telegram : null,
+                                discord: this.deliveryConfig.discord.enabled ? this.deliveryConfig.discord : null,
+                                email: this.deliveryConfig.email.enabled ? this.deliveryConfig.email : null,
+                            })
+                        });
+                        this.deliverySuccess = true;
+                        this.deliveryResult = 'Saved!';
+                        await this.loadSettings();
+                    } catch (e) {
+                        this.deliverySuccess = false;
+                        this.deliveryResult = 'Failed to save';
+                    }
+                },
+
+                async testDelivery(channel) {
+                    this.deliveryResult = 'Testing...';
+                    try {
+                        // First save the config
+                        await this.saveDelivery();
+
+                        const resp = await fetch(`/api/settings/delivery/test/${channel}`, {
+                            method: 'POST'
+                        });
+                        const result = await resp.json();
+                        this.deliverySuccess = result.success;
+                        this.deliveryResult = result.success ? result.message : `Failed: ${result.error}`;
+                    } catch (e) {
+                        this.deliverySuccess = false;
+                        this.deliveryResult = 'Network error';
+                    }
+                },
+
+                async loadCategories() {
+                    try {
+                        const resp = await fetch('/api/categories');
+                        if (resp.ok) this.categories = await resp.json();
+                    } catch (e) { console.error(e); }
+                },
+
+                async loadCategoryPresets() {
+                    try {
+                        const resp = await fetch('/api/categories/presets/list');
+                        if (resp.ok) {
+                            const presets = await resp.json();
+                            // Filter out presets that already exist as categories
+                            const existingNames = this.categories.map(c => c.name.toLowerCase());
+                            this.categoryPresets = presets.filter(p => !existingNames.includes(p.name.toLowerCase()));
+                        }
+                    } catch (e) { console.error(e); }
+                },
+
+                async createCategoryFromPreset(presetName) {
+                    try {
+                        const resp = await fetch(`/api/categories/presets/create/${encodeURIComponent(presetName)}`, {
+                            method: 'POST'
+                        });
+                        if (resp.ok) {
+                            await this.loadCategories();
+                            await this.loadCategoryPresets();
+                        }
+                    } catch (e) { console.error(e); }
+                },
+
+                async deleteCategory(categoryId) {
+                    try {
+                        await fetch(`/api/categories/${categoryId}`, { method: 'DELETE' });
+                        await this.loadCategories();
+                        await this.loadCategoryPresets();
+                    } catch (e) { console.error(e); }
+                },
+
+                async loadPodcasts() {
+                    try {
+                        // Check if podcasts are configured
+                        const statusResp = await fetch('/api/podcasts/status');
+                        if (statusResp.ok) {
+                            const status = await statusResp.json();
+                            this.podcastsConfigured = status.configured;
+                        }
+
+                        // Load podcast list
+                        const resp = await fetch('/api/podcasts');
+                        if (resp.ok) {
+                            this.podcasts = await resp.json();
+                            // Auto-fetch transcript status for all podcasts
+                            if (this.podcastsConfigured) {
+                                this.podcasts.forEach(p => this.checkPodcastTranscripts(p.id));
+                            }
+                        }
+                    } catch (e) { console.error(e); }
+                },
+
+                async searchPodcasts() {
+                    if (!this.podcastSearchQuery.trim()) return;
+                    this.searchingPodcasts = true;
+                    this.podcastError = '';
+                    this.podcastSearchResults = [];
+
+                    try {
+                        const resp = await fetch('/api/podcasts/search', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ query: this.podcastSearchQuery, limit: 5 })
+                        });
+                        if (resp.ok) {
+                            const data = await resp.json();
+                            this.podcastSearchResults = data.results;
+                        } else {
+                            this.podcastError = 'Search failed';
+                        }
+                    } catch (e) {
+                        this.podcastError = 'Network error';
+                    } finally {
+                        this.searchingPodcasts = false;
+                    }
+                },
+
+                async addPodcast(podcastId) {
+                    this.podcastError = '';
+                    try {
+                        const resp = await fetch('/api/podcasts', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ identifier: podcastId })
+                        });
+                        if (resp.ok) {
+                            this.podcastSearchResults = [];
+                            this.podcastSearchQuery = '';
+                            await this.loadPodcasts();
+                        } else {
+                            const err = await resp.json();
+                            this.podcastError = err.detail || 'Failed to add podcast';
+                        }
+                    } catch (e) {
+                        this.podcastError = 'Network error';
+                    }
+                },
+
+                async removePodcast(podcastId) {
+                    try {
+                        await fetch(`/api/podcasts/${podcastId}`, { method: 'DELETE' });
+                        await this.loadPodcasts();
+                    } catch (e) { console.error(e); }
+                },
+
+                async checkPodcastTranscripts(podcastId) {
+                    try {
+                        const resp = await fetch(`/api/podcasts/${podcastId}/episodes?limit=5`);
+                        if (resp.ok) {
+                            const data = await resp.json();
+                            this.podcastTranscriptStatus[podcastId] = data.transcript_summary;
+                        }
+                    } catch (e) { console.error(e); }
+                },
+
+                async generateFromCategory(categoryId) {
+                    this.generating = true;
+                    this.jobStatus = 'processing';
+                    this.jobError = null;
+                    this.jobProgress = { current: 0, total: 0 };
+                    this.jobElapsed = 0;
+                    this.jobEta = null;
+
+                    try {
+                        const resp = await fetch('/api/briefings/generate', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ hours_back: 72, category_ids: [categoryId] })
+                        });
+
+                        const job = await resp.json();
+
+                        const poll = setInterval(async () => {
+                            const statusResp = await fetch(`/api/briefings/generate/${job.job_id}`);
+                            const status = await statusResp.json();
+                            this.jobStatus = status.status;
+                            this.jobStep = status.step || '';
+                            this.jobProgress = status.progress || { current: 0, total: 0 };
+                            this.jobElapsed = status.elapsed_seconds || 0;
+                            this.jobEta = status.eta_seconds || null;
+                            if (status.media_status) {
+                                this.mediaStatus = status.media_status;
+                            }
+
+                            if (status.status === 'completed') {
+                                clearInterval(poll);
+                                this.generating = false;
+                                this.jobStatus = null;
+                                this.mediaStatus = { x: { status: 'pending' }, youtube: { status: 'pending' }, podcasts: { status: 'pending' } };
+                                await this.loadBriefingHistory();
+                                await this.loadVectorStats();
+                            } else if (status.status === 'failed') {
+                                clearInterval(poll);
+                                this.generating = false;
+                                this.jobError = status.error;
+                            }
+                        }, 500);
+                    } catch (e) {
+                        this.generating = false;
+                        this.jobStatus = 'failed';
+                        this.jobError = 'Network error';
+                    }
                 },
 
                 async searchContent() {
@@ -497,6 +1737,9 @@
                     this.generating = true;
                     this.jobStatus = 'processing';
                     this.jobError = null;
+                    this.jobProgress = { current: 0, total: 0 };
+                    this.jobElapsed = 0;
+                    this.jobEta = null;
 
                     try {
                         const resp = await fetch('/api/briefings/generate', {
@@ -512,17 +1755,26 @@
                             const status = await statusResp.json();
                             this.jobStatus = status.status;
                             this.jobStep = status.step || '';
+                            this.jobProgress = status.progress || { current: 0, total: 0 };
+                            this.jobElapsed = status.elapsed_seconds || 0;
+                            this.jobEta = status.eta_seconds || null;
+                            if (status.media_status) {
+                                this.mediaStatus = status.media_status;
+                            }
 
                             if (status.status === 'completed') {
                                 clearInterval(poll);
                                 this.generating = false;
-                                await this.loadLatestBriefing();
+                                this.jobStatus = null;  // Clear status on completion
+                                this.mediaStatus = { x: { status: 'pending' }, youtube: { status: 'pending' }, podcasts: { status: 'pending' } };
+                                await this.loadBriefingHistory();
+                                await this.loadVectorStats();  // Refresh vector stats
                             } else if (status.status === 'failed') {
                                 clearInterval(poll);
                                 this.generating = false;
                                 this.jobError = status.error;
                             }
-                        }, 1000);
+                        }, 500);  // Poll more frequently for smoother progress
                     } catch (e) {
                         this.generating = false;
                         this.jobStatus = 'failed';

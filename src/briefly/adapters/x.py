@@ -37,22 +37,26 @@ class XAdapter(BaseAdapter):
         settings = get_settings()
 
         # Client for bot operations (list management) - OAuth 1.0a
+        # Disable wait_on_rate_limit to fail fast - let the caller handle retries
         self._bot_client = tweepy.Client(
             consumer_key=settings.x_api_key,
             consumer_secret=settings.x_api_key_secret,
             access_token=settings.x_access_token,
             access_token_secret=settings.x_access_token_secret,
-            wait_on_rate_limit=True,
+            wait_on_rate_limit=False,  # Fail fast, don't wait 15 min
         )
 
         # Async client for read operations - Bearer token
         self._async_client = AsyncClient(
             bearer_token=settings.x_bearer_token,
-            wait_on_rate_limit=True,
+            wait_on_rate_limit=False,  # Fail fast, don't wait 15 min
         )
 
         # Check if we have write permissions
         self._has_write_permissions: bool | None = None
+
+        # Track rate limit state
+        self._rate_limited_until: datetime | None = None
 
     async def lookup_user(self, identifier: str) -> dict[str, Any] | None:
         """Look up X user by username."""
@@ -114,6 +118,9 @@ class XAdapter(BaseAdapter):
                         }
                         results[user.username.lower()] = user_data
                         new_users[user.username.lower()] = user_data
+            except tweepy.errors.TooManyRequests as e:
+                logger.error(f"X API rate limited during user lookup: {e}")
+                break  # Return what we have
             except tweepy.errors.TweepyException as e:
                 logger.error(f"Error in batch user lookup: {e}")
 
@@ -191,6 +198,9 @@ class XAdapter(BaseAdapter):
                             posted_at=tweet.created_at,
                         )
                     )
+        except tweepy.errors.TooManyRequests as e:
+            logger.error(f"X API rate limited for {username}: {e}")
+            raise  # Re-raise to let caller handle
         except tweepy.errors.TweepyException as e:
             logger.warning(f"Failed to fetch timeline for {username}: {e}")
 
@@ -209,19 +219,24 @@ class XAdapter(BaseAdapter):
         logger.info(f"Fetching timelines for {len(users)} users (direct method)...")
 
         for i, user in enumerate(users):
-            items = await self._fetch_user_timeline(
-                user_id=str(user["id"]),
-                username=user["username"],
-                name=user.get("name"),
-                start_time=start_time,
-                end_time=end_time,
-            )
-            all_items.extend(items)
-            logger.info(f"  [{i+1}/{len(users)}] @{user['username']}: {len(items)} tweets")
+            try:
+                items = await self._fetch_user_timeline(
+                    user_id=str(user["id"]),
+                    username=user["username"],
+                    name=user.get("name"),
+                    start_time=start_time,
+                    end_time=end_time,
+                )
+                all_items.extend(items)
+                logger.info(f"  [{i+1}/{len(users)}] @{user['username']}: {len(items)} tweets")
+            except tweepy.errors.TooManyRequests as e:
+                logger.error(f"X API rate limited after {i} users - returning partial results")
+                # Return what we have so far instead of failing completely
+                break
 
-            # Small delay between requests
+            # Small delay between requests to avoid rate limits
             if i < len(users) - 1:
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(1.0)  # Increased delay to help avoid rate limits
 
         return all_items
 
