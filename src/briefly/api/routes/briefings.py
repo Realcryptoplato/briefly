@@ -32,6 +32,9 @@ def _load_briefings() -> list:
 
 
 def _save_briefing(briefing: dict):
+    # Ensure briefing has a unique ID (use job_id if available, else generate one)
+    if "id" not in briefing:
+        briefing["id"] = briefing.get("job_id") or datetime.now().strftime("%Y%m%d_%H%M%S")
     briefings = _load_briefings()
     briefings.insert(0, briefing)  # Most recent first
     briefings = briefings[:20]  # Keep last 20

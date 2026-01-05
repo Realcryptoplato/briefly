@@ -273,9 +273,23 @@
             <div class="lg:col-span-2">
                 <div class="bg-gray-800 rounded-lg p-6">
                     <div class="flex items-center justify-between mb-4">
-                        <h2 class="text-xl font-semibold flex items-center gap-2">
-                            <span class="text-2xl">📋</span> Latest Briefing
-                        </h2>
+                        <div class="flex items-center gap-4">
+                            <h2 class="text-xl font-semibold flex items-center gap-2">
+                                <span class="text-2xl">📋</span> Briefing
+                            </h2>
+                            <!-- Briefing Selector -->
+                            <div x-show="briefings.length > 0" class="flex items-center gap-2">
+                                <select
+                                    x-model="selectedBriefingId"
+                                    class="bg-gray-700 border border-gray-600 rounded px-3 py-1 text-sm focus:outline-none focus:border-cyan-500"
+                                >
+                                    <template x-for="b in briefings" :key="b.id || b.job_id">
+                                        <option :value="b.id || b.job_id" x-text="new Date(b.generated_at).toLocaleString()"></option>
+                                    </template>
+                                </select>
+                                <span class="text-xs text-gray-500" x-text="'(' + briefings.length + ' total)'"></span>
+                            </div>
+                        </div>
                         <button
                             @click="generateBriefing"
                             :disabled="generating"
@@ -320,25 +334,25 @@
                     </div>
 
                     <!-- Briefing Content -->
-                    <template x-if="latestBriefing">
+                    <template x-if="currentBriefing">
                         <div>
                             <div class="text-sm text-gray-400 mb-4 flex flex-wrap gap-4">
-                                <span>Generated: <span x-text="new Date(latestBriefing.generated_at).toLocaleString()"></span></span>
-                                <span>X: <span x-text="latestBriefing.stats?.items_fetched?.x || 0"></span></span>
-                                <span>YouTube: <span x-text="latestBriefing.stats?.items_fetched?.youtube || 0"></span></span>
-                                <span x-show="latestBriefing.stats?.transcripts_fetched" class="text-green-400">
-                                    📝 <span x-text="latestBriefing.stats?.transcripts_fetched || 0"></span> transcripts
+                                <span>Generated: <span x-text="new Date(currentBriefing.generated_at).toLocaleString()"></span></span>
+                                <span>X: <span x-text="currentBriefing.stats?.items_fetched?.x || 0"></span></span>
+                                <span>YouTube: <span x-text="currentBriefing.stats?.items_fetched?.youtube || 0"></span></span>
+                                <span x-show="currentBriefing.stats?.transcripts_fetched" class="text-green-400">
+                                    📝 <span x-text="currentBriefing.stats?.transcripts_fetched || 0"></span> transcripts
                                 </span>
                             </div>
 
-                            <div class="bg-gray-700/50 rounded p-4 whitespace-pre-wrap text-sm leading-relaxed mb-6" x-text="latestBriefing.summary"></div>
+                            <div class="bg-gray-700/50 rounded p-4 whitespace-pre-wrap text-sm leading-relaxed mb-6" x-text="currentBriefing.summary"></div>
 
                             <!-- Top Items -->
-                            <template x-if="latestBriefing.items?.length">
+                            <template x-if="currentBriefing.items?.length">
                                 <div>
                                     <h3 class="text-lg font-medium mb-3">Top Posts</h3>
                                     <div class="space-y-3">
-                                        <template x-for="item in latestBriefing.items.slice(0, 8)" :key="item.platform_id">
+                                        <template x-for="item in (currentBriefing?.items || []).slice(0, 8)" :key="item.platform_id">
                                             <div class="bg-gray-700/50 rounded p-3">
                                                 <div class="flex items-start justify-between">
                                                     <div class="flex items-center gap-2">
@@ -370,7 +384,7 @@
                         </div>
                     </template>
 
-                    <template x-if="!latestBriefing">
+                    <template x-if="!currentBriefing">
                         <div class="text-gray-500 text-center py-12">
                             <p class="text-4xl mb-4">🤖</p>
                             <p>No briefings yet. Add sources and generate!</p>
@@ -414,7 +428,8 @@
                 reconnected: false,
                 mediaStatus: null,
                 pollInterval: null,
-                latestBriefing: null,
+                briefings: [],
+                selectedBriefingId: null,
                 transcriptStats: {},
                 processingTranscripts: false,
                 transcriptResult: '',
@@ -438,7 +453,7 @@
                 async init() {
                     await this.loadSources();
                     await this.loadCacheStats();
-                    await this.loadLatestBriefing();
+                    await this.loadBriefings();
                     await this.loadTranscriptStats();
                     await this.loadVectorStats();
                     await this.loadSettings();
@@ -507,11 +522,23 @@
                     } catch (e) { console.error(e); }
                 },
 
-                async loadLatestBriefing() {
+                async loadBriefings() {
                     try {
-                        const resp = await fetch('/api/briefings/latest');
-                        if (resp.ok) this.latestBriefing = await resp.json();
+                        const resp = await fetch('/api/briefings');
+                        if (resp.ok) {
+                            this.briefings = await resp.json();
+                            if (this.briefings.length > 0 && !this.selectedBriefingId) {
+                                this.selectedBriefingId = this.briefings[0].id || this.briefings[0].job_id;
+                            }
+                        }
                     } catch (e) { console.error(e); }
+                },
+
+                get currentBriefing() {
+                    if (!this.selectedBriefingId || this.briefings.length === 0) return null;
+                    return this.briefings.find(b =>
+                        b.id === this.selectedBriefingId || b.job_id === this.selectedBriefingId
+                    ) || null;
                 },
 
                 async loadTranscriptStats() {
@@ -710,7 +737,9 @@
                                 this.pollInterval = null;
                                 this.generating = false;
                                 this.reconnected = false;
-                                await this.loadLatestBriefing();
+                                // Select the new briefing atomically
+                                this.selectedBriefingId = this.jobId;
+                                await this.loadBriefings();
                             } else if (status.status === 'failed') {
                                 clearInterval(this.pollInterval);
                                 this.pollInterval = null;
