@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     n8n_webhook_path: str = "/webhook/briefing"
     n8n_api_key: str | None = None  # Optional API key for n8n
 
+    # X Lists feature flag (use persistent list for efficient fetching)
+    use_x_lists: bool = True
+
     # YouTube (optional)
     youtube_api_key: str | None = None
 

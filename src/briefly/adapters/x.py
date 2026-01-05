@@ -13,6 +13,7 @@ from tweepy.asynchronous import AsyncClient
 from briefly.adapters.base import BaseAdapter, ContentItem
 from briefly.core.config import get_settings
 from briefly.core.cache import get_user_cache
+from briefly.services.x_lists import get_list_manager
 
 logger = logging.getLogger(__name__)
 
@@ -34,21 +35,21 @@ class XAdapter(BaseAdapter):
     MAX_USERS_DIRECT = 15  # Limit for direct timeline fetching
 
     def __init__(self) -> None:
-        settings = get_settings()
+        self._settings = get_settings()
 
         # Client for bot operations (list management) - OAuth 1.0a
         # wait_on_rate_limit=False to fail fast instead of waiting 15 min
         self._bot_client = tweepy.Client(
-            consumer_key=settings.x_api_key,
-            consumer_secret=settings.x_api_key_secret,
-            access_token=settings.x_access_token,
-            access_token_secret=settings.x_access_token_secret,
+            consumer_key=self._settings.x_api_key,
+            consumer_secret=self._settings.x_api_key_secret,
+            access_token=self._settings.x_access_token,
+            access_token_secret=self._settings.x_access_token_secret,
             wait_on_rate_limit=False,
         )
 
         # Async client for read operations - Bearer token
         self._async_client = AsyncClient(
-            bearer_token=settings.x_bearer_token,
+            bearer_token=self._settings.x_bearer_token,
             wait_on_rate_limit=False,
         )
 
@@ -58,6 +59,15 @@ class XAdapter(BaseAdapter):
 
         # Check if we have write permissions
         self._has_write_permissions: bool | None = None
+
+        # List manager for efficient fetching (lazy loaded)
+        self._list_manager = None
+
+    def _get_list_manager(self):
+        """Lazy load the list manager."""
+        if self._list_manager is None:
+            self._list_manager = get_list_manager()
+        return self._list_manager
 
     async def lookup_user(self, identifier: str) -> dict[str, Any] | None:
         """Look up X user by username."""
@@ -366,6 +376,40 @@ class XAdapter(BaseAdapter):
             logger.info(f"Deleting temporary list {list_id}...")
             await loop.run_in_executor(None, self._delete_list, list_id)
 
+    async def _fetch_via_persistent_list(
+        self,
+        identifiers: list[str],
+        start_time: datetime,
+        end_time: datetime,
+    ) -> list[ContentItem]:
+        """
+        Fetch content using the persistent list strategy.
+
+        This is the most efficient approach - syncs sources to a persistent
+        list, then fetches the list timeline (1 API call for all sources).
+        """
+        list_manager = self._get_list_manager()
+
+        # Ensure list exists and sync sources
+        await list_manager.ensure_list_exists()
+
+        # Sync sources to list (adds new, removes stale)
+        sync_result = await list_manager.sync_sources(identifiers)
+        logger.info(
+            f"List sync: {len(sync_result['added'])} added, "
+            f"{len(sync_result['removed'])} removed, "
+            f"{len(sync_result['failed'])} failed"
+        )
+
+        # Fetch list timeline (single API call!)
+        items = await list_manager.get_list_timeline(
+            start_time=start_time,
+            end_time=end_time,
+            max_results=100,
+        )
+
+        return items
+
     async def fetch_content(
         self,
         identifiers: list[str],
@@ -375,7 +419,11 @@ class XAdapter(BaseAdapter):
         """
         Fetch tweets from specified X accounts.
 
-        Automatically chooses the best strategy based on permissions.
+        Strategy selection (in order of preference):
+        1. Persistent list (if USE_X_LISTS=true) - Most efficient, 1 API call
+        2. Temporary list (if >15 users and write permissions)
+        3. Direct timeline fetching (fallback)
+
         Rate limits are handled gracefully - returns partial results if hit.
         """
         if not identifiers:
@@ -385,25 +433,43 @@ class XAdapter(BaseAdapter):
         self._rate_limited = False
         self._rate_limit_reset = None
 
-        # Step 1: Look up user IDs
-        logger.info(f"Looking up {len(identifiers)} X users...")
-        user_lookup = await self.lookup_users_batch(identifiers)
+        items = []
 
-        if not user_lookup:
-            logger.warning("No valid X users found")
-            return []
+        # Strategy 1: Use persistent list (most efficient)
+        if self._settings.use_x_lists:
+            try:
+                logger.info(f"Using persistent list strategy for {len(identifiers)} sources...")
+                items = await self._fetch_via_persistent_list(
+                    identifiers, start_time, end_time
+                )
+                if items:
+                    logger.info(f"Persistent list returned {len(items)} tweets")
+                else:
+                    logger.warning("Persistent list returned no tweets, trying fallback...")
+            except Exception as e:
+                logger.warning(f"Persistent list strategy failed: {e}, trying fallback...")
 
-        logger.info(f"Found {len(user_lookup)} valid users")
+        # Fallback: Use traditional strategies
+        if not items:
+            # Step 1: Look up user IDs
+            logger.info(f"Looking up {len(identifiers)} X users...")
+            user_lookup = await self.lookup_users_batch(identifiers)
 
-        # Step 2: Choose fetching strategy
-        has_write = await self._check_write_permissions()
+            if not user_lookup:
+                logger.warning("No valid X users found")
+                return []
 
-        if has_write and len(user_lookup) > self.MAX_USERS_DIRECT:
-            # Use list strategy for many users
-            items = await self._fetch_via_temp_list(user_lookup, start_time, end_time)
-        else:
-            # Use direct timeline fetching
-            items = await self._fetch_via_direct_timelines(user_lookup, start_time, end_time)
+            logger.info(f"Found {len(user_lookup)} valid users")
+
+            # Step 2: Choose fetching strategy
+            has_write = await self._check_write_permissions()
+
+            if has_write and len(user_lookup) > self.MAX_USERS_DIRECT:
+                # Use temp list strategy for many users
+                items = await self._fetch_via_temp_list(user_lookup, start_time, end_time)
+            else:
+                # Use direct timeline fetching
+                items = await self._fetch_via_direct_timelines(user_lookup, start_time, end_time)
 
         # Deduplicate by tweet ID
         seen_ids = set()
