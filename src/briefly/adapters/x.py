@@ -13,7 +13,6 @@ from tweepy.asynchronous import AsyncClient
 from briefly.adapters.base import BaseAdapter, ContentItem
 from briefly.core.config import get_settings
 from briefly.core.cache import get_user_cache
-from briefly.services.x_lists import get_list_manager
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +65,8 @@ class XAdapter(BaseAdapter):
     def _get_list_manager(self):
         """Lazy load the list manager."""
         if self._list_manager is None:
+            # Import here to avoid circular import
+            from briefly.services.x_lists import get_list_manager
             self._list_manager = get_list_manager()
         return self._list_manager
 
