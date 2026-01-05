@@ -18,6 +18,10 @@ class ContentItem:
     url: str | None
     metrics: dict[str, Any]  # likes, retweets, views, etc.
     posted_at: datetime
+    # Rich UI fields
+    thumbnail_url: str | None = None
+    title: str | None = None
+    tags: list[str] | None = None
 
     def compute_score(self) -> float:
         """Compute engagement score for ranking."""
