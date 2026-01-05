@@ -17,8 +17,11 @@ router = APIRouter()
 # Settings file location (in project root)
 SETTINGS_FILE = Path(__file__).parent.parent.parent.parent.parent / ".briefly-settings.json"
 
-# VPS database URL (from DATABASE_SETUP.md)
-VPS_DATABASE_URL = "postgresql://briefly:BrieflyDB2025Secure!@100.101.168.91:5435/briefly"
+# VPS connection template (password from environment)
+VPS_HOST = "100.101.168.91"
+VPS_PORT = "5435"
+VPS_DB = "briefly"
+VPS_USER = "briefly"
 
 
 class SettingsResponse(BaseModel):
@@ -130,10 +133,22 @@ async def update_settings(req: UpdateSettingsRequest) -> SettingsResponse:
 async def get_env_command(mode: str = "vps") -> dict:
     """Get the shell command to switch database modes."""
     if mode == "vps":
+        # Password should be set via VPS_DB_PASSWORD env var or in .env
+        vps_password = os.environ.get("VPS_DB_PASSWORD", "<your-vps-password>")
+        vps_url = f"postgresql://{VPS_USER}:{vps_password}@{VPS_HOST}:{VPS_PORT}/{VPS_DB}"
+
+        # Mask password in displayed command if it's a placeholder
+        if vps_password == "<your-vps-password>":
+            display_cmd = f'export DATABASE_URL="postgresql://{VPS_USER}:$VPS_DB_PASSWORD@{VPS_HOST}:{VPS_PORT}/{VPS_DB}"'
+            description = "Set VPS_DB_PASSWORD env var first, then run this"
+        else:
+            display_cmd = f'export DATABASE_URL="{_mask_url(vps_url)}"'
+            description = "Connect to VPS PostgreSQL via Tailscale"
+
         return {
             "mode": "vps",
-            "command": f'export DATABASE_URL="{VPS_DATABASE_URL}"',
-            "description": "Connect to VPS PostgreSQL via Tailscale",
+            "command": display_cmd,
+            "description": description,
         }
     else:
         return {

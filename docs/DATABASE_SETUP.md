@@ -48,11 +48,11 @@ SQLite database location: `.cache/jobs.db`
 ### Connection String
 
 ```bash
-# For apps connecting from outside VPS
-DATABASE_URL=postgresql://briefly:BrieflyDB2025Secure!@100.101.168.91:5435/briefly
+# For apps connecting from outside VPS (password from secure storage)
+DATABASE_URL=postgresql://briefly:${VPS_DB_PASSWORD}@100.101.168.91:5435/briefly
 
 # For Docker containers on briefly-network
-DATABASE_URL=postgresql://briefly:BrieflyDB2025Secure!@briefly-postgres:5432/briefly
+DATABASE_URL=postgresql://briefly:${POSTGRES_PASSWORD}@briefly-postgres:5432/briefly
 ```
 
 ### Switching to Production Database
@@ -60,12 +60,14 @@ DATABASE_URL=postgresql://briefly:BrieflyDB2025Secure!@briefly-postgres:5432/bri
 Set the `DATABASE_URL` environment variable:
 
 ```bash
-# Option 1: Export in shell
-export DATABASE_URL="postgresql://briefly:BrieflyDB2025Secure!@100.101.168.91:5435/briefly"
+# Option 1: Export in shell (get password from secure storage)
+export VPS_DB_PASSWORD="<from-1password-or-secure-storage>"
+export DATABASE_URL="postgresql://briefly:${VPS_DB_PASSWORD}@100.101.168.91:5435/briefly"
 uv run uvicorn src.briefly.api.main:app --reload --port 8000
 
-# Option 2: In .env file
-echo 'DATABASE_URL=postgresql://briefly:BrieflyDB2025Secure!@100.101.168.91:5435/briefly' >> .env
+# Option 2: In .env file (ensure .env is in .gitignore)
+VPS_DB_PASSWORD=<from-secure-storage>
+DATABASE_URL=postgresql://briefly:${VPS_DB_PASSWORD}@100.101.168.91:5435/briefly
 ```
 
 ## n8n Workflow Integration
@@ -131,11 +133,15 @@ Tables created:
 ```python
 # Test PostgreSQL connection
 import asyncpg
+import os
 
 async def test_connection():
-    conn = await asyncpg.connect(
-        "postgresql://briefly:BrieflyDB2025Secure!@100.101.168.91:5435/briefly"
-    )
+    # Get password from environment
+    db_url = os.environ.get("DATABASE_URL")
+    if not db_url:
+        raise ValueError("DATABASE_URL not set")
+
+    conn = await asyncpg.connect(db_url)
     result = await conn.fetchval("SELECT version()")
     print(result)
     await conn.close()
