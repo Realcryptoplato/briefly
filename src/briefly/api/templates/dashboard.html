@@ -6,558 +6,21 @@
     <title>Briefly 3000</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <style>
-        [x-cloak] { display: none !important; }
-
-        /* Custom scrollbar */
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 6px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: rgba(75, 85, 99, 0.3);
-            border-radius: 3px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: rgba(6, 182, 212, 0.5);
-            border-radius: 3px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: rgba(6, 182, 212, 0.8);
-        }
-
-        /* Thumbnail lazy loading placeholder */
-        .thumbnail-placeholder {
-            background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%);
-            background-size: 200% 100%;
-            animation: shimmer 1.5s infinite;
-        }
-        @keyframes shimmer {
-            0% { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
-        }
-
-        /* Card hover animation */
-        .content-card {
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-        .content-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px -5px rgba(6, 182, 212, 0.2);
-        }
-
-        /* Section expand animation */
-        .section-content {
-            transition: max-height 0.3s ease-out, opacity 0.2s ease;
-        }
-
-        /* Breadcrumb separator */
-        .breadcrumb-sep::before {
-            content: '>';
-            margin: 0 0.5rem;
-            color: #6b7280;
-        }
-
-        /* Tag hover */
-        .tag-chip {
-            transition: all 0.15s ease;
-        }
-        .tag-chip:hover {
-            transform: scale(1.05);
-        }
-
-        /* Slide-in panel animation */
-        .slide-panel {
-            transition: transform 0.3s ease-out;
-        }
-        .slide-panel.closed {
-            transform: translateX(100%);
-        }
-
-        /* Platform icons */
-        .platform-icon-x { font-family: serif; }
-        .platform-icon-youtube { color: #ef4444; }
-    </style>
 </head>
 <body class="bg-gray-900 text-gray-100 min-h-screen">
-    <div class="flex h-screen overflow-hidden" x-data="dashboard()">
-        <!-- Main Content Area -->
-        <div class="flex-1 overflow-y-auto custom-scrollbar" :class="exploreOpen ? 'mr-96' : ''">
-            <div class="container mx-auto px-4 py-8 max-w-6xl">
-                <!-- Header -->
-                <div class="mb-8 flex items-start justify-between">
-                    <div>
-                        <h1 class="text-4xl font-bold text-cyan-400">Briefly 3000</h1>
-                        <p class="text-gray-400 mt-2">The year 3000 called - they want their executive assistant back.</p>
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <button @click="showSourcesPanel = !showSourcesPanel"
-                                class="p-2 hover:bg-gray-800 rounded-lg transition-colors relative"
-                                :class="showSourcesPanel ? 'bg-gray-800' : ''"
-                                title="Sources">
-                            <svg class="w-6 h-6 text-gray-400 hover:text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
-                            </svg>
-                            <span class="absolute -top-1 -right-1 bg-cyan-500 text-xs rounded-full w-5 h-5 flex items-center justify-center"
-                                  x-show="(sources.x?.length || 0) + (sources.youtube?.length || 0) > 0"
-                                  x-text="(sources.x?.length || 0) + (sources.youtube?.length || 0)"></span>
-                        </button>
-                        <button @click="showSettings = true" class="p-2 hover:bg-gray-800 rounded-lg transition-colors" title="Settings">
-                            <svg class="w-6 h-6 text-gray-400 hover:text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Collapsible Sources Panel -->
-                <div x-show="showSourcesPanel" x-collapse class="mb-6">
-                    <div class="bg-gray-800 rounded-lg p-4">
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <!-- X Sources -->
-                            <div>
-                                <h3 class="text-sm font-medium text-gray-400 mb-2 flex items-center gap-2">
-                                    <span class="platform-icon-x text-lg">&#120143;</span> X Sources
-                                    <span class="text-gray-500">(<span x-text="sources.x?.length || 0"></span>)</span>
-                                </h3>
-                                <form @submit.prevent="addSource('x')" class="flex gap-2 mb-2">
-                                    <input type="text" x-model="newXSource" placeholder="@username"
-                                           class="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-cyan-500">
-                                    <button type="submit" :disabled="loading" class="bg-cyan-600 hover:bg-cyan-500 px-3 py-1.5 rounded text-sm font-medium disabled:opacity-50">Add</button>
-                                </form>
-                                <div class="flex flex-wrap gap-1">
-                                    <template x-for="source in sources.x?.slice(0, 10)" :key="source.identifier">
-                                        <span class="inline-flex items-center gap-1 bg-gray-700 px-2 py-1 rounded text-xs">
-                                            @<span x-text="source.identifier"></span>
-                                            <button @click="removeSource('x', source.identifier)" class="text-red-400 hover:text-red-300">&times;</button>
-                                        </span>
-                                    </template>
-                                    <span x-show="sources.x?.length > 10" class="text-gray-500 text-xs py-1">+<span x-text="sources.x.length - 10"></span> more</span>
-                                </div>
-                            </div>
-                            <!-- YouTube Sources -->
-                            <div>
-                                <h3 class="text-sm font-medium text-gray-400 mb-2 flex items-center gap-2">
-                                    <span class="platform-icon-youtube text-lg">&#9654;</span> YouTube
-                                    <span class="text-gray-500">(<span x-text="sources.youtube?.length || 0"></span>)</span>
-                                </h3>
-                                <form @submit.prevent="addSource('youtube')" class="flex gap-2 mb-2">
-                                    <input type="text" x-model="newYTSource" placeholder="@channel"
-                                           class="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-red-500">
-                                    <button type="submit" :disabled="loading" class="bg-red-600 hover:bg-red-500 px-3 py-1.5 rounded text-sm font-medium disabled:opacity-50">Add</button>
-                                </form>
-                                <div class="flex flex-wrap gap-1">
-                                    <template x-for="source in sources.youtube?.slice(0, 10)" :key="source.identifier">
-                                        <span class="inline-flex items-center gap-1 bg-gray-700 px-2 py-1 rounded text-xs">
-                                            <span x-text="source.name || source.identifier"></span>
-                                            <button @click="removeSource('youtube', source.identifier)" class="text-red-400 hover:text-red-300">&times;</button>
-                                        </span>
-                                    </template>
-                                    <span x-show="sources.youtube?.length > 10" class="text-gray-500 text-xs py-1">+<span x-text="sources.youtube.length - 10"></span> more</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Quick Search Bar -->
-                <div class="mb-6">
-                    <div class="relative">
-                        <input type="text"
-                               x-model="searchQuery"
-                               @keyup.enter="openExplore(searchQuery)"
-                               placeholder="Search your content... (e.g., 'bitcoin analysis', 'AI news')"
-                               class="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 pl-12 text-sm focus:outline-none focus:border-cyan-500 transition-colors">
-                        <svg class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                        </svg>
-                        <button x-show="searchQuery" @click="openExplore(searchQuery)"
-                                class="absolute right-2 top-1/2 -translate-y-1/2 bg-cyan-600 hover:bg-cyan-500 px-4 py-1.5 rounded text-sm font-medium transition-colors">
-                            Explore
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Generate Button + Status -->
-                <div class="mb-6 flex items-center justify-between">
-                    <div class="flex items-center gap-4">
-                        <button @click="generateBriefing" :disabled="generating"
-                                class="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 px-6 py-2.5 rounded-lg text-sm font-medium disabled:opacity-50 flex items-center gap-2 transition-all shadow-lg shadow-cyan-900/30">
-                            <span x-show="generating" class="animate-spin">&#8635;</span>
-                            <span x-text="generating ? 'Generating...' : 'Generate Briefing'"></span>
-                        </button>
-                        <!-- Briefing Selector -->
-                        <div x-show="briefings.length > 0" class="flex items-center gap-2">
-                            <select
-                                x-model="selectedBriefingId"
-                                class="bg-gray-700 border border-gray-600 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-cyan-500"
-                            >
-                                <template x-for="b in briefings" :key="b.id || b.job_id">
-                                    <option :value="b.id || b.job_id" x-text="new Date(b.generated_at).toLocaleString()"></option>
-                                </template>
-                            </select>
-                            <span class="text-xs text-gray-500" x-text="'(' + briefings.length + ' total)'"></span>
-                        </div>
-                        <span x-show="currentBriefing" class="text-sm text-gray-500">
-                            Last: <span x-text="formatTime(currentBriefing?.generated_at)"></span>
-                        </span>
-                    </div>
-                    <!-- Briefing Tags -->
-                    <div x-show="currentBriefing?.tags?.length" class="flex items-center gap-2">
-                        <span class="text-xs text-gray-500">Topics:</span>
-                        <div class="flex flex-wrap gap-1">
-                            <template x-for="tag in currentBriefing?.tags?.slice(0, 6)" :key="tag">
-                                <button @click="openExplore(tag)"
-                                        class="tag-chip text-xs bg-gray-700 hover:bg-cyan-900 text-gray-300 hover:text-cyan-300 px-2 py-0.5 rounded-full cursor-pointer transition-colors">
-                                    <span x-text="tag"></span>
-                                </button>
-                            </template>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Job Status Banner -->
-                <div x-show="jobStatus && jobStatus !== 'completed'" class="mb-6">
-                    <div class="bg-gradient-to-r from-yellow-900/30 to-orange-900/30 border border-yellow-700/30 rounded-lg p-4">
-                        <div class="flex items-center gap-3">
-                            <span class="animate-spin text-yellow-400">&#8635;</span>
-                            <div class="flex-1">
-                                <div class="text-yellow-300 font-medium" x-text="jobStep || 'Processing...'"></div>
-                                <template x-if="mediaStatus">
-                                    <div class="mt-2 flex flex-wrap gap-3 text-sm">
-                                        <template x-for="(status, platform) in mediaStatus" :key="platform">
-                                            <span class="flex items-center gap-1">
-                                                <span x-text="platform === 'x' ? '&#120143;' : platform === 'youtube' ? '&#9654;' : '&#128230;'"
-                                                      :class="platform === 'youtube' ? 'text-red-400' : ''"></span>
-                                                <span x-text="status.status"></span>
-                                                <span x-show="status.count" class="text-cyan-400">(<span x-text="status.count"></span>)</span>
-                                            </span>
-                                        </template>
-                                    </div>
-                                </template>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Main Briefing Content -->
-                <template x-if="currentBriefing">
-                    <div>
-                        <!-- AI Summary Card -->
-                        <div class="bg-gradient-to-br from-gray-800 to-gray-800/50 rounded-xl p-6 mb-8 border border-gray-700/50">
-                            <div class="flex items-center gap-2 mb-4">
-                                <span class="text-2xl">&#129302;</span>
-                                <h2 class="text-lg font-semibold">AI Summary</h2>
-                                <span class="text-xs text-gray-500 ml-auto">
-                                    <span x-text="currentBriefing.stats?.items_fetched?.x || 0"></span> tweets,
-                                    <span x-text="currentBriefing.stats?.items_fetched?.youtube || 0"></span> videos
-                                </span>
-                            </div>
-                            <div class="prose prose-invert prose-sm max-w-none">
-                                <p class="text-gray-300 leading-relaxed whitespace-pre-wrap" x-text="currentBriefing.summary"></p>
-                            </div>
-                        </div>
-
-                        <!-- Structured Sections -->
-                        <template x-if="currentBriefing.sections?.length">
-                            <div class="space-y-8">
-                                <template x-for="section in currentBriefing.sections" :key="section.title">
-                                    <div>
-                                        <!-- Section Header -->
-                                        <div class="flex items-center gap-2 mb-4">
-                                            <span class="text-xl" x-text="section.icon"></span>
-                                            <h2 class="text-xl font-bold" x-text="section.title"></h2>
-                                            <span class="text-sm text-gray-500" x-show="section.items">
-                                                (<span x-text="section.items?.length || 0"></span>)
-                                            </span>
-                                        </div>
-
-                                        <!-- Regular section items -->
-                                        <template x-if="section.type !== 'categories'">
-                                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <template x-for="item in section.items" :key="item.platform_id">
-                                                    <div class="content-card bg-gray-800 rounded-xl overflow-hidden border border-gray-700/50 hover:border-cyan-700/50">
-                                                        <!-- Thumbnail -->
-                                                        <div x-show="item.thumbnail_url" class="relative aspect-video bg-gray-900">
-                                                            <img :src="item.thumbnail_url"
-                                                                 :alt="item.title"
-                                                                 class="w-full h-full object-cover"
-                                                                 loading="lazy"
-                                                                 @error="$el.style.display='none'">
-                                                            <!-- Platform badge -->
-                                                            <div class="absolute top-2 left-2 px-2 py-1 rounded-full text-xs font-medium"
-                                                                 :class="item.platform === 'youtube' ? 'bg-red-600' : 'bg-gray-800'">
-                                                                <span x-text="item.platform === 'youtube' ? '&#9654; YouTube' : '&#120143; X'"></span>
-                                                            </div>
-                                                            <!-- Duration/Time -->
-                                                            <div class="absolute bottom-2 right-2 bg-black/70 px-2 py-0.5 rounded text-xs">
-                                                                <span x-text="formatTimeAgo(item.posted_at)"></span>
-                                                            </div>
-                                                        </div>
-
-                                                        <!-- No thumbnail fallback -->
-                                                        <div x-show="!item.thumbnail_url"
-                                                             class="h-12 flex items-center px-4 border-b border-gray-700/50"
-                                                             :class="item.platform === 'youtube' ? 'bg-red-900/20' : 'bg-gray-800'">
-                                                            <span class="text-lg mr-2" x-text="item.platform === 'youtube' ? '&#9654;' : '&#120143;'"></span>
-                                                            <span class="text-sm font-medium text-cyan-400" x-text="item.source_name || item.source"></span>
-                                                            <span class="ml-auto text-xs text-gray-500" x-text="formatTimeAgo(item.posted_at)"></span>
-                                                        </div>
-
-                                                        <!-- Card Content -->
-                                                        <div class="p-4">
-                                                            <!-- Title -->
-                                                            <h3 class="font-semibold text-sm mb-2 line-clamp-2" x-text="item.title || item.content.substring(0, 100)"></h3>
-
-                                                            <!-- Source (when thumbnail exists) -->
-                                                            <div x-show="item.thumbnail_url" class="flex items-center gap-2 mb-2 text-xs text-gray-400">
-                                                                <span class="text-cyan-400 font-medium" x-text="item.source_name || item.source"></span>
-                                                            </div>
-
-                                                            <!-- Content preview -->
-                                                            <p class="text-xs text-gray-400 line-clamp-2 mb-3" x-text="item.content.substring(0, 150)"></p>
-
-                                                            <!-- Metrics -->
-                                                            <div class="flex items-center gap-3 text-xs text-gray-500 mb-3">
-                                                                <template x-if="item.platform === 'youtube'">
-                                                                    <span class="flex items-center gap-3">
-                                                                        <span>&#128065; <span x-text="formatNumber(item.metrics?.view_count)"></span></span>
-                                                                        <span>&#10084;&#65039; <span x-text="formatNumber(item.metrics?.like_count)"></span></span>
-                                                                        <span x-show="item.metrics?.has_transcript" class="text-green-400">&#128221; Transcript</span>
-                                                                    </span>
-                                                                </template>
-                                                                <template x-if="item.platform === 'x'">
-                                                                    <span class="flex items-center gap-3">
-                                                                        <span>&#10084;&#65039; <span x-text="formatNumber(item.metrics?.like_count)"></span></span>
-                                                                        <span>&#128257; <span x-text="formatNumber(item.metrics?.retweet_count)"></span></span>
-                                                                    </span>
-                                                                </template>
-                                                            </div>
-
-                                                            <!-- Tags -->
-                                                            <div x-show="item.tags?.length" class="flex flex-wrap gap-1 mb-3">
-                                                                <template x-for="tag in item.tags?.slice(0, 4)" :key="tag">
-                                                                    <button @click="openExplore(tag)"
-                                                                            class="tag-chip text-xs bg-gray-700 hover:bg-cyan-900/50 text-gray-400 hover:text-cyan-300 px-2 py-0.5 rounded transition-colors">
-                                                                        <span x-text="tag"></span>
-                                                                    </button>
-                                                                </template>
-                                                            </div>
-
-                                                            <!-- Actions -->
-                                                            <div class="flex items-center gap-2 pt-2 border-t border-gray-700/50">
-                                                                <a :href="item.url" target="_blank"
-                                                                   class="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1">
-                                                                    View Original &#8599;
-                                                                </a>
-                                                                <button @click="openExplore(item.drill_down_query || item.title)"
-                                                                        class="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1 ml-auto">
-                                                                    Drill Down &#8595;
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </template>
-                                            </div>
-                                        </template>
-
-                                        <!-- Category sections -->
-                                        <template x-if="section.type === 'categories'">
-                                            <div class="space-y-6">
-                                                <template x-for="category in section.categories" :key="category.tag">
-                                                    <div class="bg-gray-800/50 rounded-lg p-4" x-data="{ expanded: false }">
-                                                        <button @click="expanded = !expanded"
-                                                                class="w-full flex items-center justify-between text-left">
-                                                            <div class="flex items-center gap-2">
-                                                                <span class="text-cyan-400 font-medium" x-text="category.title"></span>
-                                                                <span class="text-xs text-gray-500">(<span x-text="category.items.length"></span> items)</span>
-                                                            </div>
-                                                            <svg class="w-5 h-5 text-gray-400 transition-transform"
-                                                                 :class="expanded ? 'rotate-180' : ''"
-                                                                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                                                            </svg>
-                                                        </button>
-                                                        <div x-show="expanded" x-collapse class="mt-4 space-y-2">
-                                                            <template x-for="item in category.items" :key="item.platform_id">
-                                                                <div class="flex items-start gap-3 p-2 rounded bg-gray-700/50 hover:bg-gray-700">
-                                                                    <img x-show="item.thumbnail_url"
-                                                                         :src="item.thumbnail_url"
-                                                                         class="w-20 h-12 object-cover rounded"
-                                                                         loading="lazy">
-                                                                    <div class="flex-1 min-w-0">
-                                                                        <div class="flex items-center gap-2 text-xs text-gray-500 mb-1">
-                                                                            <span x-text="item.platform === 'youtube' ? '&#9654;' : '&#120143;'"></span>
-                                                                            <span x-text="item.source_name"></span>
-                                                                        </div>
-                                                                        <p class="text-sm truncate" x-text="item.title || item.content.substring(0, 80)"></p>
-                                                                    </div>
-                                                                    <a :href="item.url" target="_blank" class="text-cyan-400 text-xs shrink-0">&#8599;</a>
-                                                                </div>
-                                                            </template>
-                                                        </div>
-                                                    </div>
-                                                </template>
-                                            </div>
-                                        </template>
-                                    </div>
-                                </template>
-                            </div>
-                        </template>
-
-                        <!-- Fallback: Plain Items Grid (if no sections) -->
-                        <template x-if="!currentBriefing.sections?.length && currentBriefing.items?.length">
-                            <div>
-                                <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
-                                    <span>&#128240;</span> Top Posts
-                                </h2>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <template x-for="item in currentBriefing.items.slice(0, 10)" :key="item.platform_id">
-                                        <div class="content-card bg-gray-800 rounded-lg p-4 border border-gray-700/50 hover:border-cyan-700/50">
-                                            <div class="flex items-center gap-2 mb-2">
-                                                <span x-text="item.platform === 'youtube' ? '&#9654;' : '&#120143;'"
-                                                      :class="item.platform === 'youtube' ? 'text-red-500' : ''"></span>
-                                                <span class="text-cyan-400 font-medium text-sm" x-text="item.source_name || item.source"></span>
-                                                <span class="text-xs text-gray-500 ml-auto" x-text="formatTimeAgo(item.posted_at)"></span>
-                                            </div>
-                                            <p class="text-sm line-clamp-3" x-text="item.content"></p>
-                                            <div class="mt-2 flex items-center gap-2">
-                                                <a :href="item.url" target="_blank" class="text-cyan-400 text-xs hover:underline">View &#8599;</a>
-                                            </div>
-                                        </div>
-                                    </template>
-                                </div>
-                            </div>
-                        </template>
-                    </div>
-                </template>
-
-                <!-- Empty State -->
-                <template x-if="!currentBriefing && !generating">
-                    <div class="text-center py-20">
-                        <div class="text-6xl mb-6">&#129302;</div>
-                        <h2 class="text-2xl font-bold text-gray-300 mb-2">No briefings yet</h2>
-                        <p class="text-gray-500 mb-6">Add some sources and generate your first briefing!</p>
-                        <button @click="showSourcesPanel = true"
-                                class="bg-cyan-600 hover:bg-cyan-500 px-6 py-2 rounded-lg font-medium transition-colors">
-                            Add Sources
-                        </button>
-                    </div>
-                </template>
-
-                <!-- Footer -->
-                <div class="mt-12 text-center text-gray-500 text-sm flex items-center justify-center gap-4">
-                    <span>Briefly 3000 &bull; Powered by Grok 4.1</span>
-                    <span class="flex items-center gap-1">
-                        <span class="w-2 h-2 rounded-full" :class="settingsData.database_type === 'postgresql' ? 'bg-green-400' : 'bg-yellow-400'"></span>
-                        <span x-text="settingsData.database_type === 'postgresql' ? 'VPS' : 'Local'"></span>
-                    </span>
-                </div>
+    <div class="container mx-auto px-4 py-8" x-data="dashboard()">
+        <!-- Header -->
+        <div class="mb-8 flex items-start justify-between">
+            <div>
+                <h1 class="text-4xl font-bold text-cyan-400">Briefly 3000</h1>
+                <p class="text-gray-400 mt-2">The year 3000 called — they want their executive assistant back.</p>
             </div>
-        </div>
-
-        <!-- Explore Slide-out Panel -->
-        <div x-show="exploreOpen"
-             x-transition:enter="transition ease-out duration-300"
-             x-transition:enter-start="translate-x-full"
-             x-transition:enter-end="translate-x-0"
-             x-transition:leave="transition ease-in duration-200"
-             x-transition:leave-start="translate-x-0"
-             x-transition:leave-end="translate-x-full"
-             class="fixed right-0 top-0 h-full w-96 bg-gray-800 shadow-2xl border-l border-gray-700 z-50 overflow-hidden flex flex-col">
-
-            <!-- Panel Header -->
-            <div class="p-4 border-b border-gray-700 bg-gray-900">
-                <div class="flex items-center justify-between mb-3">
-                    <h3 class="font-semibold flex items-center gap-2">
-                        <span>&#128269;</span> Explore
-                    </h3>
-                    <button @click="closeExplore()" class="text-gray-400 hover:text-white p-1">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
-                </div>
-
-                <!-- Breadcrumb -->
-                <div class="flex items-center text-sm text-gray-400 flex-wrap">
-                    <template x-for="(crumb, index) in exploreBreadcrumb" :key="index">
-                        <span class="flex items-center">
-                            <span x-show="index > 0" class="breadcrumb-sep"></span>
-                            <button @click="navigateBreadcrumb(index)"
-                                    class="hover:text-cyan-400 transition-colors"
-                                    :class="index === exploreBreadcrumb.length - 1 ? 'text-cyan-400 font-medium' : ''"
-                                    x-text="crumb"></button>
-                        </span>
-                    </template>
-                </div>
-            </div>
-
-            <!-- Search Input in Panel -->
-            <div class="p-4 border-b border-gray-700">
-                <div class="relative">
-                    <input type="text"
-                           x-model="exploreQuery"
-                           @keyup.enter="doExplore()"
-                           placeholder="Search deeper..."
-                           class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 pl-10 text-sm focus:outline-none focus:border-cyan-500">
-                    <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-                    </svg>
-                </div>
-            </div>
-
-            <!-- Suggested Queries -->
-            <div x-show="exploreSuggestions.length" class="px-4 py-2 border-b border-gray-700 bg-gray-800/50">
-                <div class="text-xs text-gray-500 mb-2">Related:</div>
-                <div class="flex flex-wrap gap-1">
-                    <template x-for="suggestion in exploreSuggestions" :key="suggestion">
-                        <button @click="exploreQuery = suggestion; doExplore()"
-                                class="text-xs bg-gray-700 hover:bg-cyan-900/50 text-gray-400 hover:text-cyan-300 px-2 py-1 rounded transition-colors">
-                            <span x-text="suggestion"></span>
-                        </button>
-                    </template>
-                </div>
-            </div>
-
-            <!-- Results -->
-            <div class="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-3">
-                <div x-show="exploreLoading" class="text-center py-8">
-                    <span class="animate-spin text-2xl">&#8635;</span>
-                    <p class="text-gray-500 mt-2">Searching...</p>
-                </div>
-
-                <template x-for="result in exploreResults" :key="result.id">
-                    <div class="bg-gray-700/50 rounded-lg overflow-hidden hover:bg-gray-700 transition-colors">
-                        <!-- Thumbnail -->
-                        <div x-show="result.thumbnail_url" class="relative aspect-video">
-                            <img :src="result.thumbnail_url"
-                                 class="w-full h-full object-cover"
-                                 loading="lazy">
-                            <div class="absolute top-2 left-2 px-2 py-0.5 rounded-full text-xs"
-                                 :class="result.platform === 'youtube' ? 'bg-red-600' : 'bg-gray-800'">
-                                <span x-text="result.platform"></span>
-                            </div>
-                        </div>
-                        <div class="p-3">
-                            <div class="flex items-center gap-2 text-xs text-gray-500 mb-1">
-                                <span x-text="result.platform === 'youtube' ? '&#9654;' : '&#120143;'"></span>
-                                <span x-text="result.source_name || result.source_id"></span>
-                                <span class="ml-auto text-cyan-400"><span x-text="(result.similarity * 100).toFixed(0)"></span>%</span>
-                            </div>
-                            <p class="text-sm line-clamp-3" x-text="result.chunk_content"></p>
-                            <div class="mt-2 flex items-center gap-2">
-                                <a x-show="result.url" :href="result.url" target="_blank"
-                                   class="text-xs text-cyan-400 hover:text-cyan-300">View &#8599;</a>
-                            </div>
-                        </div>
-                    </div>
-                </template>
-
-                <div x-show="!exploreLoading && exploreResults.length === 0 && exploreQuery" class="text-center py-8">
-                    <p class="text-gray-500">No results found</p>
-                </div>
-            </div>
+            <button @click="showSettings = true" class="p-2 hover:bg-gray-800 rounded-lg transition-colors" title="Settings">
+                <svg class="w-6 h-6 text-gray-400 hover:text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                </svg>
+            </button>
         </div>
 
         <!-- Settings Modal -->
@@ -608,38 +71,355 @@
                     </div>
                 </div>
 
-                <!-- Stats -->
-                <div class="mb-6 grid grid-cols-2 gap-4">
-                    <div class="bg-gray-700 rounded p-3">
-                        <div class="text-xs text-gray-400">Cache</div>
-                        <div class="text-lg font-bold" x-text="cacheStats.cached_users || 0"></div>
+                <!-- Restart Instructions -->
+                <div x-show="settingsData.restart_required" class="mb-6 p-3 bg-yellow-900/30 rounded-lg">
+                    <p class="text-yellow-300 text-sm mb-2">Restart required to apply changes:</p>
+                    <code class="text-xs text-gray-300 bg-gray-900 p-2 rounded block" x-text="envCommand"></code>
+                    <p class="text-xs text-gray-400 mt-2">Then restart the server</p>
+                </div>
+
+                <!-- Environment Info -->
+                <div class="text-xs text-gray-500 border-t border-gray-700 pt-4">
+                    <div class="flex justify-between">
+                        <span>Environment:</span>
+                        <span x-text="settingsData.environment"></span>
                     </div>
-                    <div class="bg-gray-700 rounded p-3">
-                        <div class="text-xs text-gray-400">Vector Chunks</div>
-                        <div class="text-lg font-bold" x-text="vectorStats.total_chunks || 0"></div>
+                    <div class="flex justify-between mt-1">
+                        <span>Production Mode:</span>
+                        <span x-text="settingsData.is_production ? 'Yes' : 'No'"></span>
                     </div>
                 </div>
             </div>
         </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Sources Panel -->
+            <div class="lg:col-span-1 space-y-6">
+                <!-- X Sources -->
+                <div class="bg-gray-800 rounded-lg p-6">
+                    <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                        <span class="text-2xl">𝕏</span> X Sources
+                        <span class="text-sm text-gray-500 font-normal">(<span x-text="sources.x?.length || 0"></span>)</span>
+                    </h2>
+
+                    <form @submit.prevent="addSource('x')" class="mb-4">
+                        <div class="flex gap-2">
+                            <input
+                                type="text"
+                                x-model="newXSource"
+                                placeholder="@username"
+                                class="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-cyan-500"
+                            >
+                            <button type="submit" :disabled="loading" class="bg-cyan-600 hover:bg-cyan-500 px-4 py-2 rounded text-sm font-medium disabled:opacity-50">
+                                Add
+                            </button>
+                        </div>
+                        <p x-show="xError" x-text="xError" class="text-red-400 text-sm mt-2"></p>
+                    </form>
+
+                    <div class="space-y-2 max-h-48 overflow-y-auto">
+                        <template x-for="source in sources.x" :key="source.identifier">
+                            <div class="flex items-center justify-between bg-gray-700 rounded px-3 py-2 text-sm">
+                                <div>
+                                    <span class="font-medium">@<span x-text="source.identifier"></span></span>
+                                    <span x-show="source.cached" class="text-green-400 text-xs ml-1">✓</span>
+                                </div>
+                                <button @click="removeSource('x', source.identifier)" class="text-red-400 hover:text-red-300">✕</button>
+                            </div>
+                        </template>
+                        <p x-show="!sources.x?.length" class="text-gray-500 text-sm">No X sources yet</p>
+                    </div>
+                </div>
+
+                <!-- YouTube Sources -->
+                <div class="bg-gray-800 rounded-lg p-6">
+                    <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                        <span class="text-2xl text-red-500">▶</span> YouTube
+                        <span class="text-sm text-gray-500 font-normal">(<span x-text="sources.youtube?.length || 0"></span>)</span>
+                    </h2>
+
+                    <!-- Import Subscriptions -->
+                    <div class="mb-4 p-3 bg-gray-700/50 rounded">
+                        <p class="text-sm text-gray-400 mb-2">Import from your YouTube channel:</p>
+                        <form @submit.prevent="importYouTube" class="flex gap-2">
+                            <input
+                                type="text"
+                                x-model="youtubeChannel"
+                                placeholder="@yourchannel"
+                                class="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-red-500"
+                            >
+                            <button type="submit" :disabled="importingYT" class="bg-red-600 hover:bg-red-500 px-3 py-2 rounded text-sm font-medium disabled:opacity-50">
+                                <span x-show="importingYT" class="animate-spin">⟳</span>
+                                <span x-show="!importingYT">Import</span>
+                            </button>
+                        </form>
+                        <p x-show="ytImportResult" x-text="ytImportResult" class="text-sm mt-2" :class="ytImportError ? 'text-red-400' : 'text-green-400'"></p>
+                    </div>
+
+                    <!-- Manual Add -->
+                    <form @submit.prevent="addSource('youtube')" class="mb-4">
+                        <div class="flex gap-2">
+                            <input
+                                type="text"
+                                x-model="newYTSource"
+                                placeholder="@channel or channel ID"
+                                class="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-red-500"
+                            >
+                            <button type="submit" :disabled="loading" class="bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded text-sm font-medium disabled:opacity-50">
+                                Add
+                            </button>
+                        </div>
+                        <p x-show="ytError" x-text="ytError" class="text-red-400 text-sm mt-2"></p>
+                    </form>
+
+                    <div class="space-y-2 max-h-48 overflow-y-auto">
+                        <template x-for="source in sources.youtube" :key="source.identifier">
+                            <div class="flex items-center justify-between bg-gray-700 rounded px-3 py-2 text-sm">
+                                <div class="truncate flex-1 mr-2">
+                                    <span class="font-medium" x-text="source.name || source.identifier"></span>
+                                    <span x-show="source.cached" class="text-green-400 text-xs ml-1">✓</span>
+                                </div>
+                                <button @click="removeSource('youtube', source.identifier)" class="text-red-400 hover:text-red-300 flex-shrink-0">✕</button>
+                            </div>
+                        </template>
+                        <p x-show="!sources.youtube?.length" class="text-gray-500 text-sm">No YouTube sources yet</p>
+                    </div>
+                </div>
+
+                <!-- Semantic Search -->
+                <div class="bg-gray-800 rounded-lg p-6">
+                    <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                        <span class="text-2xl">&#128269;</span> Semantic Search
+                    </h2>
+
+                    <form @submit.prevent="searchContent" class="mb-4">
+                        <input
+                            type="text"
+                            x-model="searchQuery"
+                            placeholder="What did anyone say about..."
+                            class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm mb-2 focus:outline-none focus:border-cyan-500"
+                        >
+                        <button type="submit" :disabled="searching" class="w-full bg-cyan-600 hover:bg-cyan-500 px-4 py-2 rounded text-sm font-medium disabled:opacity-50">
+                            <span x-show="searching">Searching...</span>
+                            <span x-show="!searching">Search</span>
+                        </button>
+                    </form>
+
+                    <p x-show="searchError" x-text="searchError" class="text-red-400 text-sm mb-2"></p>
+
+                    <div x-show="searchResults.length > 0" class="space-y-2 max-h-64 overflow-y-auto">
+                        <template x-for="result in searchResults" :key="result.id + '-' + result.chunk_content.substring(0, 20)">
+                            <div class="bg-gray-700 rounded p-2 text-sm">
+                                <div class="flex items-center gap-1 text-xs text-gray-400">
+                                    <span x-show="result.platform === 'x'">&#120143;</span>
+                                    <span x-show="result.platform === 'youtube'" class="text-red-500">&#9654;</span>
+                                    <span x-text="result.platform"></span>
+                                    <span>&bull;</span>
+                                    <span x-text="result.source_name || result.source_id"></span>
+                                </div>
+                                <p class="mt-1 line-clamp-2" x-text="result.chunk_content"></p>
+                                <div class="flex items-center justify-between mt-1">
+                                    <span class="text-xs text-cyan-400">
+                                        <span x-text="(result.similarity * 100).toFixed(1)"></span>% match
+                                    </span>
+                                    <a x-show="result.url" :href="result.url" target="_blank" class="text-cyan-400 text-xs hover:underline">
+                                        View &rarr;
+                                    </a>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    <p x-show="searchResults.length === 0 && !searching && searchQuery && !searchError" class="text-gray-500 text-sm">
+                        No results found
+                    </p>
+                </div>
+
+                <!-- Cache Stats -->
+                <div class="bg-gray-800 rounded-lg p-4">
+                    <h3 class="text-sm font-medium text-gray-400 mb-2">Cache</h3>
+                    <p class="text-sm"><span x-text="cacheStats.cached_users || 0"></span> items cached</p>
+                </div>
+
+                <!-- Vector Store Stats -->
+                <div class="bg-gray-800 rounded-lg p-4">
+                    <h3 class="text-sm font-medium text-gray-400 mb-2">Vector Store</h3>
+                    <div class="text-sm space-y-1">
+                        <p><span x-text="vectorStats.total_content_items || 0"></span> content items</p>
+                        <p><span x-text="vectorStats.total_chunks || 0"></span> chunks indexed</p>
+                    </div>
+                </div>
+
+                <!-- Transcript Processing -->
+                <div class="bg-gray-800 rounded-lg p-4">
+                    <h3 class="text-sm font-medium text-gray-400 mb-2">Transcripts</h3>
+                    <div class="text-sm space-y-2">
+                        <p><span x-text="transcriptStats.pending_summarization || 0"></span> pending summarization</p>
+                        <button
+                            @click="processTranscripts"
+                            :disabled="processingTranscripts"
+                            x-show="transcriptStats.pending_summarization > 0"
+                            class="w-full bg-purple-600 hover:bg-purple-500 px-3 py-2 rounded text-xs font-medium disabled:opacity-50"
+                        >
+                            <span x-show="processingTranscripts" class="animate-spin inline-block mr-1">&#8635;</span>
+                            <span x-text="processingTranscripts ? 'Processing...' : 'Summarize Transcripts'"></span>
+                        </button>
+                        <p x-show="transcriptResult" x-text="transcriptResult" class="text-green-400 text-xs"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Briefing Panel -->
+            <div class="lg:col-span-2">
+                <div class="bg-gray-800 rounded-lg p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-4">
+                            <h2 class="text-xl font-semibold flex items-center gap-2">
+                                <span class="text-2xl">📋</span> Briefing
+                            </h2>
+                            <!-- Briefing Selector -->
+                            <div x-show="briefings.length > 0" class="flex items-center gap-2">
+                                <select
+                                    x-model="selectedBriefingId"
+                                    class="bg-gray-700 border border-gray-600 rounded px-3 py-1 text-sm focus:outline-none focus:border-cyan-500"
+                                >
+                                    <template x-for="b in briefings" :key="b.id || b.job_id">
+                                        <option :value="b.id || b.job_id" x-text="new Date(b.generated_at).toLocaleString()"></option>
+                                    </template>
+                                </select>
+                                <span class="text-xs text-gray-500" x-text="'(' + briefings.length + ' total)'"></span>
+                            </div>
+                        </div>
+                        <button
+                            @click="generateBriefing"
+                            :disabled="generating"
+                            class="bg-cyan-600 hover:bg-cyan-500 px-4 py-2 rounded text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+                        >
+                            <span x-show="generating" class="animate-spin">⟳</span>
+                            <span x-text="generating ? 'Generating...' : 'Generate New'"></span>
+                        </button>
+                    </div>
+
+                    <!-- Reconnected Banner -->
+                    <div x-show="reconnected && generating" class="mb-4 p-3 rounded bg-blue-900/30 text-blue-300">
+                        <div class="flex items-center gap-2">
+                            <span>🔗</span>
+                            <span>Reconnected to running job</span>
+                        </div>
+                    </div>
+
+                    <!-- Status -->
+                    <div x-show="jobStatus" class="mb-4 p-3 rounded"
+                         :class="jobStatus === 'completed' ? 'bg-green-900/30 text-green-300' : jobStatus === 'failed' ? 'bg-red-900/30 text-red-300' : 'bg-yellow-900/30 text-yellow-300'">
+                        <div class="flex items-center gap-2">
+                            <span x-show="jobStatus === 'running' || jobStatus === 'pending'" class="animate-spin">⟳</span>
+                            <span x-text="(jobStatus === 'running' || jobStatus === 'pending') ? jobStep : 'Status: ' + jobStatus"></span>
+                        </div>
+                        <!-- Media status from job.progress.media_status -->
+                        <template x-if="mediaStatus">
+                            <div class="mt-2 text-sm space-y-1">
+                                <template x-for="(status, platform) in mediaStatus" :key="platform">
+                                    <div class="flex items-center gap-2">
+                                        <span x-text="platform === 'x' ? '𝕏' : platform === 'youtube' ? '▶' : platform === 'podcasts' ? '🎙️' : '📦'"></span>
+                                        <span x-text="platform"></span>
+                                        <span class="text-gray-400">—</span>
+                                        <span x-text="status.status"></span>
+                                        <span x-show="status.count" class="text-cyan-400">(<span x-text="status.count"></span>)</span>
+                                        <span x-show="status.current_podcast" class="text-gray-400 text-xs" x-text="status.current_podcast"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                        <span x-show="jobError" x-text="jobError" class="text-red-400 text-sm block mt-1"></span>
+                    </div>
+
+                    <!-- Briefing Content -->
+                    <template x-if="currentBriefing">
+                        <div>
+                            <div class="text-sm text-gray-400 mb-4 flex flex-wrap gap-4">
+                                <span>Generated: <span x-text="new Date(currentBriefing.generated_at).toLocaleString()"></span></span>
+                                <span>X: <span x-text="currentBriefing.stats?.items_fetched?.x || 0"></span></span>
+                                <span>YouTube: <span x-text="currentBriefing.stats?.items_fetched?.youtube || 0"></span></span>
+                                <span x-show="currentBriefing.stats?.transcripts_fetched" class="text-green-400">
+                                    📝 <span x-text="currentBriefing.stats?.transcripts_fetched || 0"></span> transcripts
+                                </span>
+                            </div>
+
+                            <div class="bg-gray-700/50 rounded p-4 whitespace-pre-wrap text-sm leading-relaxed mb-6" x-text="currentBriefing.summary"></div>
+
+                            <!-- Top Items -->
+                            <template x-if="currentBriefing.items?.length">
+                                <div>
+                                    <h3 class="text-lg font-medium mb-3">Top Posts</h3>
+                                    <div class="space-y-3">
+                                        <template x-for="item in (currentBriefing?.items || []).slice(0, 8)" :key="item.platform_id">
+                                            <div class="bg-gray-700/50 rounded p-3">
+                                                <div class="flex items-start justify-between">
+                                                    <div class="flex items-center gap-2">
+                                                        <span x-show="item.platform === 'x'" class="text-lg">𝕏</span>
+                                                        <span x-show="item.platform === 'youtube'" class="text-lg text-red-500">▶</span>
+                                                        <span class="font-medium text-cyan-400" x-text="item.source_name || item.source"></span>
+                                                    </div>
+                                                    <div class="text-xs text-gray-400">
+                                                        <template x-if="item.platform === 'x'">
+                                                            <span>❤️ <span x-text="item.metrics?.like_count || 0"></span></span>
+                                                        </template>
+                                                        <template x-if="item.platform === 'youtube'">
+                                                            <span>
+                                                                <span x-show="item.metrics?.has_transcript" class="text-green-400 mr-1" title="Transcript available">📝</span>
+                                                                👁 <span x-text="(item.metrics?.view_count || 0).toLocaleString()"></span>
+                                                            </span>
+                                                        </template>
+                                                    </div>
+                                                </div>
+                                                <p class="mt-2 text-sm line-clamp-3" x-text="item.content"></p>
+                                                <a :href="item.url" target="_blank" class="text-cyan-400 text-xs hover:underline mt-1 inline-block">
+                                                    View <span x-text="item.platform === 'youtube' ? 'on YouTube' : 'on X'"></span> →
+                                                </a>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+
+                    <template x-if="!currentBriefing">
+                        <div class="text-gray-500 text-center py-12">
+                            <p class="text-4xl mb-4">🤖</p>
+                            <p>No briefings yet. Add sources and generate!</p>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-8 text-center text-gray-500 text-sm flex items-center justify-center gap-4">
+            <span>Briefly 3000 • Powered by Grok 4.1</span>
+            <span class="flex items-center gap-1">
+                <span class="w-2 h-2 rounded-full" :class="settingsData.database_type === 'postgresql' ? 'bg-green-400' : 'bg-yellow-400'"></span>
+                <span x-text="settingsData.database_type === 'postgresql' ? 'VPS' : 'Local'"></span>
+            </span>
+        </div>
     </div>
 
+    <style>
+        [x-cloak] { display: none !important; }
+    </style>
     <script>
         function dashboard() {
             return {
-                // Data
                 sources: { x: [], youtube: [] },
                 cacheStats: {},
-                vectorStats: {},
-                briefings: [],
-                selectedBriefingId: null,
-                transcriptStats: {},
-                processingTranscripts: false,
-                transcriptResult: '',
-
-                // UI State
-                showSourcesPanel: false,
-                showSettings: false,
+                newXSource: '',
+                newYTSource: '',
+                youtubeChannel: '',
+                xError: '',
+                ytError: '',
+                ytImportResult: '',
+                ytImportError: false,
                 loading: false,
+                importingYT: false,
                 generating: false,
                 jobStatus: null,
                 jobStep: '',
@@ -648,28 +428,27 @@
                 reconnected: false,
                 mediaStatus: null,
                 pollInterval: null,
-
-                // Search
+                briefings: [],
+                selectedBriefingId: null,
+                transcriptStats: {},
+                processingTranscripts: false,
+                transcriptResult: '',
                 searchQuery: '',
-
-                // Explore Panel
-                exploreOpen: false,
-                exploreQuery: '',
-                exploreResults: [],
-                exploreBreadcrumb: ['Home'],
-                exploreSuggestions: [],
-                exploreLoading: false,
-
-                // Form inputs
-                newXSource: '',
-                newYTSource: '',
-
+                searchResults: [],
+                searching: false,
+                searchError: '',
+                vectorStats: {},
                 // Settings
+                showSettings: false,
                 settingsData: {
                     database_mode: 'local',
                     database_type: 'sqlite',
                     database_url_masked: '',
+                    environment: 'development',
+                    is_production: false,
+                    restart_required: false,
                 },
+                envCommand: '',
 
                 async init() {
                     await this.loadSources();
@@ -681,32 +460,54 @@
                     await this.checkActiveJob();
                 },
 
-                // Formatting helpers
-                formatNumber(num) {
-                    if (!num) return '0';
-                    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-                    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
-                    return num.toString();
+                async loadSettings() {
+                    try {
+                        const resp = await fetch('/api/settings');
+                        if (resp.ok) {
+                            this.settingsData = await resp.json();
+                        }
+                    } catch (e) { console.error('Failed to load settings:', e); }
                 },
 
-                formatTime(dateStr) {
-                    if (!dateStr) return '';
-                    return new Date(dateStr).toLocaleString();
+                async switchDatabase(mode) {
+                    try {
+                        // Get the env command for the target mode
+                        const cmdResp = await fetch(`/api/settings/env-command?mode=${mode}`);
+                        if (cmdResp.ok) {
+                            const cmdData = await cmdResp.json();
+                            this.envCommand = cmdData.command;
+                        }
+
+                        // Update settings preference
+                        const resp = await fetch('/api/settings', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ database_mode: mode })
+                        });
+                        if (resp.ok) {
+                            this.settingsData = await resp.json();
+                        }
+                    } catch (e) { console.error('Failed to switch database:', e); }
                 },
 
-                formatTimeAgo(dateStr) {
-                    if (!dateStr) return '';
-                    const date = new Date(dateStr);
-                    const now = new Date();
-                    const hours = Math.floor((now - date) / (1000 * 60 * 60));
-                    if (hours < 1) return 'Just now';
-                    if (hours < 24) return `${hours}h ago`;
-                    const days = Math.floor(hours / 24);
-                    if (days === 1) return 'Yesterday';
-                    return `${days}d ago`;
+                async checkActiveJob() {
+                    try {
+                        const resp = await fetch('/api/jobs/active');
+                        if (resp.ok) {
+                            const activeJob = await resp.json();
+                            this.jobId = activeJob.id;
+                            this.jobStatus = activeJob.status;
+                            this.jobStep = activeJob.progress?.step || '';
+                            this.reconnected = true;
+                            this.generating = true;
+                            this.startPolling();
+                        }
+                    } catch (e) {
+                        // No active job or error, continue normally
+                        console.log('No active job to reconnect to');
+                    }
                 },
 
-                // API calls
                 async loadSources() {
                     try {
                         const resp = await fetch('/api/sources');
@@ -754,11 +555,70 @@
                     } catch (e) { console.error(e); }
                 },
 
-                async loadSettings() {
+                async searchContent() {
+                    if (!this.searchQuery.trim()) return;
+                    this.searching = true;
+                    this.searchError = '';
+
                     try {
-                        const resp = await fetch('/api/settings');
-                        if (resp.ok) this.settingsData = await resp.json();
-                    } catch (e) { console.error(e); }
+                        const resp = await fetch('/api/search', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ query: this.searchQuery, limit: 10 })
+                        });
+                        if (resp.ok) {
+                            const data = await resp.json();
+                            this.searchResults = data.results;
+                        } else {
+                            const err = await resp.json();
+                            this.searchError = err.detail || 'Search failed';
+                            this.searchResults = [];
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        this.searchError = 'Network error';
+                        this.searchResults = [];
+                    } finally {
+                        this.searching = false;
+                    }
+                },
+
+                async processTranscripts() {
+                    this.processingTranscripts = true;
+                    this.transcriptResult = '';
+
+                    try {
+                        const resp = await fetch('/api/briefings/transcripts/process?limit=5', {
+                            method: 'POST',
+                        });
+                        const job = await resp.json();
+
+                        if (job.status === 'no_pending') {
+                            this.transcriptResult = 'No transcripts to process';
+                            this.processingTranscripts = false;
+                            return;
+                        }
+
+                        // Poll for completion
+                        const poll = setInterval(async () => {
+                            const statusResp = await fetch(`/api/briefings/generate/${job.job_id}`);
+                            const status = await statusResp.json();
+
+                            if (status.status === 'completed') {
+                                clearInterval(poll);
+                                this.processingTranscripts = false;
+                                this.transcriptResult = `Processed ${status.processed_count} transcripts`;
+                                await this.loadTranscriptStats();
+                            } else if (status.status === 'failed') {
+                                clearInterval(poll);
+                                this.processingTranscripts = false;
+                                this.transcriptResult = 'Processing failed: ' + status.error;
+                            }
+                        }, 2000);
+                    } catch (e) {
+                        this.processingTranscripts = false;
+                        this.transcriptResult = 'Network error';
+                    }
                 },
 
                 async addSource(platform) {
@@ -766,6 +626,9 @@
                     if (!identifier.trim()) return;
 
                     this.loading = true;
+                    this.xError = '';
+                    this.ytError = '';
+
                     try {
                         const resp = await fetch('/api/sources', {
                             method: 'POST',
@@ -773,13 +636,22 @@
                             body: JSON.stringify({ platform, identifier: identifier.trim() })
                         });
 
-                        if (resp.ok) {
+                        if (!resp.ok) {
+                            const err = await resp.json();
+                            if (platform === 'x') this.xError = err.detail;
+                            else this.ytError = err.detail;
+                        } else {
                             if (platform === 'x') this.newXSource = '';
                             else this.newYTSource = '';
                             await this.loadSources();
+                            await this.loadCacheStats();
                         }
-                    } catch (e) { console.error(e); }
-                    finally { this.loading = false; }
+                    } catch (e) {
+                        if (platform === 'x') this.xError = 'Network error';
+                        else this.ytError = 'Network error';
+                    } finally {
+                        this.loading = false;
+                    }
                 },
 
                 async removeSource(platform, identifier) {
@@ -787,30 +659,37 @@
                     await this.loadSources();
                 },
 
-                async switchDatabase(mode) {
+                async importYouTube() {
+                    if (!this.youtubeChannel.trim()) return;
+
+                    this.importingYT = true;
+                    this.ytImportResult = '';
+                    this.ytImportError = false;
+
                     try {
-                        const resp = await fetch('/api/settings', {
+                        const resp = await fetch('/api/sources/youtube/import', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ database_mode: mode })
+                            body: JSON.stringify({ channel: this.youtubeChannel.trim() })
                         });
-                        if (resp.ok) this.settingsData = await resp.json();
-                    } catch (e) { console.error(e); }
-                },
 
-                async checkActiveJob() {
-                    try {
-                        const resp = await fetch('/api/jobs/active');
-                        if (resp.ok) {
-                            const activeJob = await resp.json();
-                            this.jobId = activeJob.id;
-                            this.jobStatus = activeJob.status;
-                            this.jobStep = activeJob.progress?.step || '';
-                            this.reconnected = true;
-                            this.generating = true;
-                            this.startPolling();
+                        const data = await resp.json();
+
+                        if (!resp.ok) {
+                            this.ytImportResult = data.detail || 'Import failed';
+                            this.ytImportError = true;
+                        } else {
+                            this.ytImportResult = `Imported ${data.new_sources_added} new channels from ${data.channel}`;
+                            this.youtubeChannel = '';
+                            await this.loadSources();
+                            await this.loadCacheStats();
                         }
-                    } catch (e) { }
+                    } catch (e) {
+                        this.ytImportResult = 'Network error';
+                        this.ytImportError = true;
+                    } finally {
+                        this.importingYT = false;
+                    }
                 },
 
                 async generateBriefing() {
@@ -841,12 +720,14 @@
                 },
 
                 startPolling() {
-                    if (this.pollInterval) clearInterval(this.pollInterval);
+                    if (this.pollInterval) {
+                        clearInterval(this.pollInterval);
+                    }
 
                     this.pollInterval = setInterval(async () => {
                         try {
-                            const resp = await fetch(`/api/jobs/${this.jobId}`);
-                            const status = await resp.json();
+                            const statusResp = await fetch(`/api/jobs/${this.jobId}`);
+                            const status = await statusResp.json();
                             this.jobStatus = status.status;
                             this.jobStep = status.progress?.step || '';
                             this.mediaStatus = status.progress?.media_status || null;
@@ -866,56 +747,10 @@
                                 this.reconnected = false;
                                 this.jobError = status.error;
                             }
-                        } catch (e) { console.error(e); }
-                    }, 1500);
-                },
-
-                // Explore functionality
-                openExplore(query) {
-                    this.exploreOpen = true;
-                    this.exploreQuery = query;
-                    this.exploreBreadcrumb = ['Home'];
-                    this.doExplore();
-                },
-
-                closeExplore() {
-                    this.exploreOpen = false;
-                    this.exploreResults = [];
-                    this.exploreSuggestions = [];
-                },
-
-                async doExplore() {
-                    if (!this.exploreQuery.trim()) return;
-
-                    this.exploreLoading = true;
-                    try {
-                        const resp = await fetch('/api/search/explore', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                query: this.exploreQuery,
-                                breadcrumb: this.exploreBreadcrumb,
-                                limit: 12
-                            })
-                        });
-
-                        if (resp.ok) {
-                            const data = await resp.json();
-                            this.exploreResults = data.results;
-                            this.exploreBreadcrumb = data.breadcrumb;
-                            this.exploreSuggestions = data.suggested_queries || [];
+                        } catch (e) {
+                            console.error('Polling error:', e);
                         }
-                    } catch (e) { console.error(e); }
-                    finally { this.exploreLoading = false; }
-                },
-
-                navigateBreadcrumb(index) {
-                    if (index === 0) {
-                        this.closeExplore();
-                    } else {
-                        this.exploreBreadcrumb = this.exploreBreadcrumb.slice(0, index + 1);
-                        // Could re-run search with previous query
-                    }
+                    }, 1500);
                 }
             };
         }
