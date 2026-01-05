@@ -74,6 +74,7 @@ docker-compose.override.yml
 *.pem
 *.key
 secrets/
+.briefly-settings.json
 
 # Cache
 .cache/
