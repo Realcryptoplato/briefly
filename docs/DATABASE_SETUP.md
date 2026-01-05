@@ -3,10 +3,17 @@
 ## Overview
 
 Briefly uses a dual-database architecture:
-- **Development**: SQLite (local file-based, zero config)
-- **Production**: PostgreSQL on VPS (port 5435)
+- **Development**: SQLite (local file-based, zero config) or PostgreSQL 17 with pgvector (local Docker)
+- **Production**: PostgreSQL 17 with pgvector on VPS (port 5435)
 
 The `JobService` in `src/briefly/services/jobs.py` automatically selects the backend based on the `DATABASE_URL` environment variable.
+
+## pgvector Support
+
+Both dev and prod PostgreSQL instances use `pgvector/pgvector:pg17` for:
+- Vector embeddings storage (1536 dimensions, OpenAI text-embedding-3-small)
+- Semantic search via cosine similarity
+- Content deduplication
 
 ## Database Selection Logic
 

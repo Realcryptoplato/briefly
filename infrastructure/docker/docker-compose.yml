@@ -1,24 +1,33 @@
 # ============================================
-# Briefly Docker Compose Configuration
+# Briefly VPS Docker Compose Configuration
 # ============================================
 #
 # Services:
-# - postgres: PostgreSQL 16 for Briefly data (job tracking, sources, etc.)
+# - postgres: PostgreSQL 17 with pgvector for embeddings and job tracking
+# - redis: Redis for Celery task queue (optional)
 #
 # Usage:
-#   docker-compose up -d              # Start PostgreSQL
+#   docker-compose up -d              # Start services
 #   docker-compose down               # Stop services
 #   docker-compose logs postgres      # View logs
 #
 # Environment variables required in .env:
 #   POSTGRES_PASSWORD - PostgreSQL password
+#
+# Port mapping (VPS):
+#   5432 - letta postgres (internal)
+#   5433 - ella postgres
+#   5434 - letta postgres v012
+#   5435 - briefly postgres (this service)
+#   5678 - n8n
 
 name: briefly
 
 services:
-  # PostgreSQL Database for Briefly
+  # PostgreSQL with pgvector for Briefly
+  # IMPORTANT: Must use pgvector image for embedding support
   postgres:
-    image: postgres:16-alpine
+    image: pgvector/pgvector:pg17
     container_name: briefly-postgres
     restart: unless-stopped
     environment:
@@ -26,12 +35,30 @@ services:
       POSTGRES_USER: briefly
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - "5435:5432"  # External: 5435 (letta uses 5432/5434, ella uses 5433)
+      - "5435:5432"
     volumes:
       - briefly-postgres-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U briefly -d briefly"]
       interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - briefly-network
+
+  # Redis for Celery task queue
+  redis:
+    image: redis:7-alpine
+    container_name: briefly-redis
+    restart: unless-stopped
+    ports:
+      - "6382:6379"
+    volumes:
+      - briefly-redis-data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
       timeout: 5s
       retries: 5
     networks:
@@ -44,3 +71,5 @@ networks:
 volumes:
   briefly-postgres-data:
     name: briefly-postgres-data
+  briefly-redis-data:
+    name: briefly-redis-data
