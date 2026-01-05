@@ -677,5 +677,6 @@
     {
       "name": "v1.0"
     }
-  ]
+  ],
+  "active": false
 }

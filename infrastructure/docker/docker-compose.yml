@@ -1,0 +1,46 @@
+# ============================================
+# Briefly Docker Compose Configuration
+# ============================================
+#
+# Services:
+# - postgres: PostgreSQL 16 for Briefly data (job tracking, sources, etc.)
+#
+# Usage:
+#   docker-compose up -d              # Start PostgreSQL
+#   docker-compose down               # Stop services
+#   docker-compose logs postgres      # View logs
+#
+# Environment variables required in .env:
+#   POSTGRES_PASSWORD - PostgreSQL password
+
+name: briefly
+
+services:
+  # PostgreSQL Database for Briefly
+  postgres:
+    image: postgres:16-alpine
+    container_name: briefly-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: briefly
+      POSTGRES_USER: briefly
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5435:5432"  # External: 5435 (letta uses 5432/5434, ella uses 5433)
+    volumes:
+      - briefly-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U briefly -d briefly"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - briefly-network
+
+networks:
+  briefly-network:
+    driver: bridge
+
+volumes:
+  briefly-postgres-data:
+    name: briefly-postgres-data

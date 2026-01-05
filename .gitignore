@@ -77,3 +77,6 @@ secrets/
 
 # Cache
 .cache/
+
+# Infrastructure secrets
+infrastructure/docker/.env
