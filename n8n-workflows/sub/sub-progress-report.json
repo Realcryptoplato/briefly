@@ -1,0 +1,227 @@
+{
+  "name": "Sub - Progress Report",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger-1",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.BRIEFLY_API_URL }}/api/n8n/progress",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($input.first().json) }}",
+        "options": {
+          "timeout": 10000,
+          "response": {
+            "response": {
+              "fullResponse": false,
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "http-progress-1",
+      "name": "POST Progress to API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [500, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "briefly-api-auth",
+          "name": "Briefly API Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-1",
+              "leftValue": "={{ $input.first().json.status }}",
+              "rightValue": "error",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-error-1",
+      "name": "Check If Error",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [750, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assign-1",
+              "name": "reported",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "assign-2",
+              "name": "timestamp",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "assign-3",
+              "name": "workflow",
+              "value": "={{ $input.first().json.workflow }}",
+              "type": "string"
+            },
+            {
+              "id": "assign-4",
+              "name": "status",
+              "value": "={{ $input.first().json.status }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-output-1",
+      "name": "Set Success Output",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1000, 200]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assign-err-1",
+              "name": "reported",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "assign-err-2",
+              "name": "timestamp",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            },
+            {
+              "id": "assign-err-3",
+              "name": "workflow",
+              "value": "={{ $input.first().json.workflow }}",
+              "type": "string"
+            },
+            {
+              "id": "assign-err-4",
+              "name": "status",
+              "value": "error",
+              "type": "string"
+            },
+            {
+              "id": "assign-err-5",
+              "name": "error_logged",
+              "value": true,
+              "type": "boolean"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-error-output-1",
+      "name": "Set Error Output",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1000, 400]
+    }
+  ],
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "POST Progress to API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST Progress to API": {
+      "main": [
+        [
+          {
+            "node": "Check If Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check If Error": {
+      "main": [
+        [
+          {
+            "node": "Set Error Output",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Success Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "briefly-n8n"
+  },
+  "pinData": {},
+  "versionId": "1.0.0",
+  "triggerCount": 0,
+  "tags": [
+    {
+      "id": "sub-workflow",
+      "name": "sub-workflow"
+    },
+    {
+      "id": "briefly",
+      "name": "briefly"
+    }
+  ]
+}

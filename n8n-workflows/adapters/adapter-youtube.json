@@ -1,0 +1,1067 @@
+{
+  "name": "Adapter - YouTube",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 30
+            }
+          ]
+        }
+      },
+      "id": "cron-trigger-1",
+      "name": "Cron Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 400]
+    },
+    {
+      "parameters": {},
+      "id": "workflow-trigger-1",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [200, 600]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "id": "merge-trigger-1",
+      "name": "Merge Triggers",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [420, 500]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "init-1",
+              "name": "platform",
+              "value": "youtube",
+              "type": "string"
+            },
+            {
+              "id": "init-2",
+              "name": "run_id",
+              "value": "={{ $json.run_id || `youtube-${$now.toMillis()}` }}",
+              "type": "string"
+            },
+            {
+              "id": "init-3",
+              "name": "hours_back",
+              "value": "={{ $json.hours_back || 48 }}",
+              "type": "number"
+            },
+            {
+              "id": "init-4",
+              "name": "user_id",
+              "value": "={{ $json.user_id || null }}",
+              "type": "string"
+            },
+            {
+              "id": "init-5",
+              "name": "triggered_by",
+              "value": "={{ $json.triggered_by || 'cron' }}",
+              "type": "string"
+            },
+            {
+              "id": "init-6",
+              "name": "started_at",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-init-1",
+      "name": "Initialize",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [620, 500]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.BRIEFLY_API_URL }}/api/sources",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "platform",
+              "value": "youtube"
+            },
+            {
+              "name": "active_only",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "http-sources-1",
+      "name": "Fetch Sources",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [840, 500],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "briefly-api-auth",
+          "name": "Briefly API Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-sources",
+              "leftValue": "={{ $json.sources?.length > 0 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-sources-1",
+      "name": "Has Sources?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1060, 500]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "={{ $json.sources }}",
+        "options": {}
+      },
+      "id": "split-sources-1",
+      "name": "Split Sources",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [1300, 400]
+    },
+    {
+      "parameters": {
+        "batchSize": 5,
+        "options": {}
+      },
+      "id": "batch-sources-1",
+      "name": "Batch Sources",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [1520, 400]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://www.googleapis.com/youtube/v3/channels",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "contentDetails,snippet"
+            },
+            {
+              "name": "id",
+              "value": "={{ $json.platform_id || $json.identifier }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "http-channel-1",
+      "name": "Get Channel Info",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1740, 400],
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "youtube-api-key",
+          "name": "YouTube API Key"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-channel",
+              "leftValue": "={{ $json.items?.[0]?.contentDetails?.relatedPlaylists?.uploads }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "isNotEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-channel-found-1",
+      "name": "Channel Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1960, 400]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://www.googleapis.com/youtube/v3/playlistItems",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "snippet,contentDetails"
+            },
+            {
+              "name": "playlistId",
+              "value": "={{ $json.items[0].contentDetails.relatedPlaylists.uploads }}"
+            },
+            {
+              "name": "maxResults",
+              "value": "10"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "http-playlist-1",
+      "name": "Get Playlist Items",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2200, 300],
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "youtube-api-key",
+          "name": "YouTube API Key"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract video IDs from playlist items\nconst playlistItems = $input.first().json.items || [];\n\n// Filter to videos published within hours_back\nconst hoursBack = $('Initialize').item.json.hours_back;\nconst cutoffDate = new Date();\ncutoffDate.setHours(cutoffDate.getHours() - hoursBack);\n\nconst recentVideoIds = playlistItems\n  .filter(item => {\n    const publishedAt = new Date(item.snippet?.publishedAt);\n    return publishedAt >= cutoffDate;\n  })\n  .map(item => item.contentDetails?.videoId)\n  .filter(id => id);\n\nif (recentVideoIds.length === 0) {\n  return [{\n    json: {\n      videos: [],\n      channel_id: $('Get Channel Info').item.json.items?.[0]?.id,\n      channel_title: $('Get Channel Info').item.json.items?.[0]?.snippet?.title,\n      count: 0\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    video_ids: recentVideoIds.join(','),\n    channel_id: $('Get Channel Info').item.json.items?.[0]?.id,\n    channel_title: $('Get Channel Info').item.json.items?.[0]?.snippet?.title,\n    count: recentVideoIds.length\n  }\n}];"
+      },
+      "id": "code-extract-videos-1",
+      "name": "Extract Recent Videos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2420, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-videos",
+              "leftValue": "={{ $json.count > 0 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-has-videos-1",
+      "name": "Has Recent Videos?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2640, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://www.googleapis.com/youtube/v3/videos",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "part",
+              "value": "snippet,statistics,contentDetails"
+            },
+            {
+              "name": "id",
+              "value": "={{ $json.video_ids }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "http-video-details-1",
+      "name": "Get Video Details",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2880, 200],
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "youtube-api-key",
+          "name": "YouTube API Key"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Transform YouTube videos to ContentItem format\nconst videos = $input.first().json.items || [];\nconst channelId = $('Extract Recent Videos').item.json.channel_id;\nconst channelTitle = $('Extract Recent Videos').item.json.channel_title;\n\n// Helper to parse ISO 8601 duration\nfunction parseDuration(duration) {\n  if (!duration) return 0;\n  const match = duration.match(/PT(?:(\\d+)H)?(?:(\\d+)M)?(?:(\\d+)S)?/);\n  if (!match) return 0;\n  const hours = parseInt(match[1] || 0);\n  const minutes = parseInt(match[2] || 0);\n  const seconds = parseInt(match[3] || 0);\n  return hours * 3600 + minutes * 60 + seconds;\n}\n\nconst items = videos.map(video => ({\n  platform: 'youtube',\n  platform_id: video.id,\n  source_identifier: channelId,\n  source_name: channelTitle,\n  content: video.snippet?.description || '',\n  url: `https://youtube.com/watch?v=${video.id}`,\n  posted_at: video.snippet?.publishedAt,\n  fetched_at: new Date().toISOString(),\n  metrics: {\n    view_count: parseInt(video.statistics?.viewCount || 0),\n    like_count: parseInt(video.statistics?.likeCount || 0),\n    comment_count: parseInt(video.statistics?.commentCount || 0),\n    duration_seconds: parseDuration(video.contentDetails?.duration)\n  },\n  metadata: {\n    title: video.snippet?.title,\n    thumbnail_url: video.snippet?.thumbnails?.high?.url,\n    has_transcript: false, // Will be determined by transcript fetch\n    transcript_source: null,\n    tags: video.snippet?.tags || []\n  }\n}));\n\nreturn [{\n  json: {\n    items,\n    count: items.length,\n    channel_id: channelId,\n    channel_title: channelTitle\n  }\n}];"
+      },
+      "id": "code-transform-1",
+      "name": "Transform to ContentItem",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3100, 200]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "no-videos-1",
+              "name": "items",
+              "value": [],
+              "type": "array"
+            },
+            {
+              "id": "no-videos-2",
+              "name": "count",
+              "value": 0,
+              "type": "number"
+            },
+            {
+              "id": "no-videos-3",
+              "name": "channel_id",
+              "value": "={{ $('Extract Recent Videos').item.json.channel_id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-no-videos-1",
+      "name": "No Recent Videos",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [2880, 400]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "channel-error-1",
+              "name": "items",
+              "value": [],
+              "type": "array"
+            },
+            {
+              "id": "channel-error-2",
+              "name": "count",
+              "value": 0,
+              "type": "number"
+            },
+            {
+              "id": "channel-error-3",
+              "name": "error",
+              "value": "Channel not found or no uploads playlist",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-channel-not-found-1",
+      "name": "Channel Not Found",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [2200, 500]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "id": "merge-videos-1",
+      "name": "Merge Videos",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [3320, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aggregate all videos from all channels\nconst allItems = $input.all();\n\nlet allContentItems = [];\nlet totalErrors = 0;\n\nfor (const item of allItems) {\n  const data = item.json;\n  if (data.items && Array.isArray(data.items)) {\n    allContentItems = allContentItems.concat(data.items);\n  }\n  if (data.error) {\n    totalErrors++;\n  }\n}\n\nreturn [{\n  json: {\n    all_items: allContentItems,\n    total_count: allContentItems.length,\n    errors: totalErrors\n  }\n}];"
+      },
+      "id": "code-aggregate-1",
+      "name": "Aggregate All Videos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3540, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-items",
+              "leftValue": "={{ $json.total_count > 0 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-has-items-1",
+      "name": "Has Items?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [3760, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.BRIEFLY_API_URL }}/api/content/ingest",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ items: $json.all_items, platform: 'youtube' }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "http-ingest-1",
+      "name": "Ingest Content",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [4000, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "briefly-api-auth",
+          "name": "Briefly API Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "no-items-1",
+              "name": "inserted",
+              "value": 0,
+              "type": "number"
+            },
+            {
+              "id": "no-items-2",
+              "name": "duplicates_skipped",
+              "value": 0,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-no-items-1",
+      "name": "No Items to Ingest",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [4000, 500]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "id": "merge-final-1",
+      "name": "Merge Final",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [4240, 400]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "sub-progress-report",
+          "mode": "name"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "workflow": "adapter-youtube",
+            "run_id": "={{ $('Initialize').item.json.run_id }}",
+            "status": "completed",
+            "platform": "youtube",
+            "items_extracted": "={{ $('Aggregate All Videos').item.json.total_count }}",
+            "items_ingested": "={{ $json.inserted || 0 }}",
+            "duplicates_skipped": "={{ $json.duplicates_skipped || 0 }}",
+            "errors": "={{ $('Aggregate All Videos').item.json.errors }}",
+            "timestamp": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "exec-progress-1",
+      "name": "Report Progress",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [4460, 400]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "output-1",
+              "name": "platform",
+              "value": "youtube",
+              "type": "string"
+            },
+            {
+              "id": "output-2",
+              "name": "success",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "output-3",
+              "name": "items_extracted",
+              "value": "={{ $('Aggregate All Videos').item.json.total_count }}",
+              "type": "number"
+            },
+            {
+              "id": "output-4",
+              "name": "items_ingested",
+              "value": "={{ $('Merge Final').item.json.inserted || 0 }}",
+              "type": "number"
+            },
+            {
+              "id": "output-5",
+              "name": "errors",
+              "value": "={{ $('Aggregate All Videos').item.json.errors }}",
+              "type": "number"
+            },
+            {
+              "id": "output-6",
+              "name": "completed_at",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-output-1",
+      "name": "Set Output",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [4680, 400]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "no-sources-1",
+              "name": "platform",
+              "value": "youtube",
+              "type": "string"
+            },
+            {
+              "id": "no-sources-2",
+              "name": "success",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "no-sources-3",
+              "name": "items_extracted",
+              "value": 0,
+              "type": "number"
+            },
+            {
+              "id": "no-sources-4",
+              "name": "items_ingested",
+              "value": 0,
+              "type": "number"
+            },
+            {
+              "id": "no-sources-5",
+              "name": "errors",
+              "value": 0,
+              "type": "number"
+            },
+            {
+              "id": "no-sources-6",
+              "name": "message",
+              "value": "No YouTube sources configured",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-no-sources-1",
+      "name": "No Sources",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1300, 600]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "sub-progress-report",
+          "mode": "name"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "workflow": "adapter-youtube",
+            "run_id": "={{ $('Initialize').item.json.run_id }}",
+            "status": "completed",
+            "platform": "youtube",
+            "items_extracted": 0,
+            "items_ingested": 0,
+            "message": "={{ $json.message }}",
+            "timestamp": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "exec-progress-empty-1",
+      "name": "Report Empty Progress",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1520, 600]
+    }
+  ],
+  "connections": {
+    "Cron Trigger": {
+      "main": [
+        [
+          {
+            "node": "Merge Triggers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Merge Triggers",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Triggers": {
+      "main": [
+        [
+          {
+            "node": "Initialize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Initialize": {
+      "main": [
+        [
+          {
+            "node": "Fetch Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Sources": {
+      "main": [
+        [
+          {
+            "node": "Has Sources?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Sources?": {
+      "main": [
+        [
+          {
+            "node": "Split Sources",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Sources": {
+      "main": [
+        [
+          {
+            "node": "Batch Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Batch Sources": {
+      "main": [
+        [
+          {
+            "node": "Get Channel Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Channel Info": {
+      "main": [
+        [
+          {
+            "node": "Channel Found?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Channel Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Channel Found?": {
+      "main": [
+        [
+          {
+            "node": "Get Playlist Items",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Channel Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Playlist Items": {
+      "main": [
+        [
+          {
+            "node": "Extract Recent Videos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Recent Videos": {
+      "main": [
+        [
+          {
+            "node": "Has Recent Videos?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Recent Videos?": {
+      "main": [
+        [
+          {
+            "node": "Get Video Details",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Recent Videos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Video Details": {
+      "main": [
+        [
+          {
+            "node": "Transform to ContentItem",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transform to ContentItem": {
+      "main": [
+        [
+          {
+            "node": "Merge Videos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No Recent Videos": {
+      "main": [
+        [
+          {
+            "node": "Merge Videos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Channel Not Found": {
+      "main": [
+        [
+          {
+            "node": "Merge Videos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Videos": {
+      "main": [
+        [
+          {
+            "node": "Batch Sources",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Aggregate All Videos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate All Videos": {
+      "main": [
+        [
+          {
+            "node": "Has Items?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Items?": {
+      "main": [
+        [
+          {
+            "node": "Ingest Content",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Items to Ingest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ingest Content": {
+      "main": [
+        [
+          {
+            "node": "Merge Final",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No Items to Ingest": {
+      "main": [
+        [
+          {
+            "node": "Merge Final",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Final": {
+      "main": [
+        [
+          {
+            "node": "Report Progress",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Report Progress": {
+      "main": [
+        [
+          {
+            "node": "Set Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No Sources": {
+      "main": [
+        [
+          {
+            "node": "Report Empty Progress",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "briefly-n8n"
+  },
+  "pinData": {},
+  "versionId": "1.0.0",
+  "triggerCount": 1,
+  "tags": [
+    {
+      "id": "adapter",
+      "name": "adapter"
+    },
+    {
+      "id": "youtube",
+      "name": "youtube"
+    },
+    {
+      "id": "briefly",
+      "name": "briefly"
+    }
+  ]
+}
