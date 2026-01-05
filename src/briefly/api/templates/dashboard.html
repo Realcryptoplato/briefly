@@ -10,9 +10,86 @@
 <body class="bg-gray-900 text-gray-100 min-h-screen">
     <div class="container mx-auto px-4 py-8" x-data="dashboard()">
         <!-- Header -->
-        <div class="mb-8">
-            <h1 class="text-4xl font-bold text-cyan-400">Briefly 3000</h1>
-            <p class="text-gray-400 mt-2">The year 3000 called — they want their executive assistant back.</p>
+        <div class="mb-8 flex items-start justify-between">
+            <div>
+                <h1 class="text-4xl font-bold text-cyan-400">Briefly 3000</h1>
+                <p class="text-gray-400 mt-2">The year 3000 called — they want their executive assistant back.</p>
+            </div>
+            <button @click="showSettings = true" class="p-2 hover:bg-gray-800 rounded-lg transition-colors" title="Settings">
+                <svg class="w-6 h-6 text-gray-400 hover:text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                </svg>
+            </button>
+        </div>
+
+        <!-- Settings Modal -->
+        <div x-show="showSettings" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/50" @click.self="showSettings = false">
+            <div class="bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4 shadow-xl">
+                <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-xl font-semibold">Settings</h2>
+                    <button @click="showSettings = false" class="text-gray-400 hover:text-white">&times;</button>
+                </div>
+
+                <!-- Database Status -->
+                <div class="mb-6">
+                    <h3 class="text-sm font-medium text-gray-400 mb-3">Database Connection</h3>
+                    <div class="bg-gray-700 rounded-lg p-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-sm">Current Database:</span>
+                            <span class="flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full" :class="settingsData.database_type === 'postgresql' ? 'bg-green-400' : 'bg-yellow-400'"></span>
+                                <span class="font-medium" x-text="settingsData.database_type === 'postgresql' ? 'PostgreSQL' : 'SQLite'"></span>
+                            </span>
+                        </div>
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-sm">Mode:</span>
+                            <span class="font-medium" :class="settingsData.database_mode === 'vps' ? 'text-green-400' : 'text-yellow-400'" x-text="settingsData.database_mode === 'vps' ? 'VPS (Production)' : 'Local (Development)'"></span>
+                        </div>
+                        <div class="text-xs text-gray-400 font-mono truncate" x-text="settingsData.database_url_masked"></div>
+                    </div>
+                </div>
+
+                <!-- Database Mode Toggle -->
+                <div class="mb-6">
+                    <h3 class="text-sm font-medium text-gray-400 mb-3">Switch Database</h3>
+                    <div class="flex gap-2">
+                        <button
+                            @click="switchDatabase('local')"
+                            :class="settingsData.database_mode === 'local' ? 'bg-yellow-600' : 'bg-gray-600 hover:bg-gray-500'"
+                            class="flex-1 py-2 px-4 rounded font-medium text-sm transition-colors"
+                        >
+                            Local (SQLite)
+                        </button>
+                        <button
+                            @click="switchDatabase('vps')"
+                            :class="settingsData.database_mode === 'vps' ? 'bg-green-600' : 'bg-gray-600 hover:bg-gray-500'"
+                            class="flex-1 py-2 px-4 rounded font-medium text-sm transition-colors"
+                        >
+                            VPS (PostgreSQL)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Restart Instructions -->
+                <div x-show="settingsData.restart_required" class="mb-6 p-3 bg-yellow-900/30 rounded-lg">
+                    <p class="text-yellow-300 text-sm mb-2">Restart required to apply changes:</p>
+                    <code class="text-xs text-gray-300 bg-gray-900 p-2 rounded block" x-text="envCommand"></code>
+                    <p class="text-xs text-gray-400 mt-2">Then restart the server</p>
+                </div>
+
+                <!-- Environment Info -->
+                <div class="text-xs text-gray-500 border-t border-gray-700 pt-4">
+                    <div class="flex justify-between">
+                        <span>Environment:</span>
+                        <span x-text="settingsData.environment"></span>
+                    </div>
+                    <div class="flex justify-between mt-1">
+                        <span>Production Mode:</span>
+                        <span x-text="settingsData.is_production ? 'Yes' : 'No'"></span>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -303,11 +380,18 @@
             </div>
         </div>
 
-        <div class="mt-8 text-center text-gray-500 text-sm">
-            Briefly 3000 • Powered by Grok 4.1
+        <div class="mt-8 text-center text-gray-500 text-sm flex items-center justify-center gap-4">
+            <span>Briefly 3000 • Powered by Grok 4.1</span>
+            <span class="flex items-center gap-1">
+                <span class="w-2 h-2 rounded-full" :class="settingsData.database_type === 'postgresql' ? 'bg-green-400' : 'bg-yellow-400'"></span>
+                <span x-text="settingsData.database_type === 'postgresql' ? 'VPS' : 'Local'"></span>
+            </span>
         </div>
     </div>
 
+    <style>
+        [x-cloak] { display: none !important; }
+    </style>
     <script>
         function dashboard() {
             return {
@@ -339,6 +423,17 @@
                 searching: false,
                 searchError: '',
                 vectorStats: {},
+                // Settings
+                showSettings: false,
+                settingsData: {
+                    database_mode: 'local',
+                    database_type: 'sqlite',
+                    database_url_masked: '',
+                    environment: 'development',
+                    is_production: false,
+                    restart_required: false,
+                },
+                envCommand: '',
 
                 async init() {
                     await this.loadSources();
@@ -346,7 +441,38 @@
                     await this.loadLatestBriefing();
                     await this.loadTranscriptStats();
                     await this.loadVectorStats();
+                    await this.loadSettings();
                     await this.checkActiveJob();
+                },
+
+                async loadSettings() {
+                    try {
+                        const resp = await fetch('/api/settings');
+                        if (resp.ok) {
+                            this.settingsData = await resp.json();
+                        }
+                    } catch (e) { console.error('Failed to load settings:', e); }
+                },
+
+                async switchDatabase(mode) {
+                    try {
+                        // Get the env command for the target mode
+                        const cmdResp = await fetch(`/api/settings/env-command?mode=${mode}`);
+                        if (cmdResp.ok) {
+                            const cmdData = await cmdResp.json();
+                            this.envCommand = cmdData.command;
+                        }
+
+                        // Update settings preference
+                        const resp = await fetch('/api/settings', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ database_mode: mode })
+                        });
+                        if (resp.ok) {
+                            this.settingsData = await resp.json();
+                        }
+                    } catch (e) { console.error('Failed to switch database:', e); }
                 },
 
                 async checkActiveJob() {
