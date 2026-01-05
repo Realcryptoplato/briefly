@@ -76,6 +76,64 @@
         /* Platform icons */
         .platform-icon-x { font-family: serif; }
         .platform-icon-youtube { color: #ef4444; }
+
+        /* Enhanced card glow effect */
+        .content-card-glow {
+            position: relative;
+        }
+        .content-card-glow::before {
+            content: '';
+            position: absolute;
+            inset: -1px;
+            background: linear-gradient(135deg, rgba(6, 182, 212, 0.3), rgba(139, 92, 246, 0.3));
+            border-radius: inherit;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: -1;
+        }
+        .content-card-glow:hover::before {
+            opacity: 1;
+        }
+
+        /* Platform badge styles */
+        .platform-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-weight: 500;
+        }
+        .platform-badge-x {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+        }
+        .platform-badge-youtube {
+            background: linear-gradient(135deg, #cc0000, #ff0000);
+        }
+
+        /* Thumbnail with play button overlay */
+        .thumbnail-container {
+            position: relative;
+        }
+        .thumbnail-container .play-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.3);
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        .thumbnail-container:hover .play-overlay {
+            opacity: 1;
+        }
+
+        /* Card gradient backgrounds */
+        .card-gradient-youtube {
+            background: linear-gradient(135deg, rgba(204, 0, 0, 0.1), transparent);
+        }
+        .card-gradient-x {
+            background: linear-gradient(135deg, rgba(29, 155, 240, 0.1), transparent);
+        }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-100 min-h-screen">
@@ -276,30 +334,61 @@
                                         <template x-if="section.type !== 'categories'">
                                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                 <template x-for="item in section.items" :key="item.platform_id">
-                                                    <div class="content-card bg-gray-800 rounded-xl overflow-hidden border border-gray-700/50 hover:border-cyan-700/50">
-                                                        <!-- Thumbnail -->
-                                                        <div x-show="item.thumbnail_url" class="relative aspect-video bg-gray-900">
-                                                            <img :src="item.thumbnail_url"
+                                                    <div class="content-card content-card-glow bg-gray-800 rounded-xl overflow-hidden border border-gray-700/50 hover:border-cyan-700/50"
+                                                         :class="item.platform === 'youtube' ? 'card-gradient-youtube' : 'card-gradient-x'">
+                                                        <!-- Thumbnail (with fallback generation for YouTube) -->
+                                                        <div x-show="getThumbnail(item)" class="thumbnail-container relative aspect-video bg-gray-900">
+                                                            <img :src="getThumbnail(item)"
                                                                  :alt="item.title"
                                                                  class="w-full h-full object-cover"
                                                                  loading="lazy"
-                                                                 @error="$el.style.display='none'">
-                                                            <!-- Platform badge -->
-                                                            <div class="absolute top-2 left-2 px-2 py-1 rounded-full text-xs font-medium"
-                                                                 :class="item.platform === 'youtube' ? 'bg-red-600' : 'bg-gray-800'">
-                                                                <span x-text="item.platform === 'youtube' ? '&#9654; YouTube' : '&#120143; X'"></span>
+                                                                 @error="$el.parentElement.style.display='none'">
+                                                            <!-- Play overlay for YouTube -->
+                                                            <div x-show="item.platform === 'youtube'" class="play-overlay">
+                                                                <svg class="w-16 h-16 text-white/90" fill="currentColor" viewBox="0 0 24 24">
+                                                                    <path d="M8 5v14l11-7z"/>
+                                                                </svg>
+                                                            </div>
+                                                            <!-- Platform badge with SVG icons -->
+                                                            <div class="absolute top-2 left-2 px-2 py-1 rounded-full text-xs font-medium platform-badge"
+                                                                 :class="item.platform === 'youtube' ? 'platform-badge-youtube' : 'platform-badge-x'">
+                                                                <template x-if="item.platform === 'youtube'">
+                                                                    <span class="flex items-center gap-1">
+                                                                        <svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                                                                            <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                                                                        </svg>
+                                                                        YouTube
+                                                                    </span>
+                                                                </template>
+                                                                <template x-if="item.platform === 'x'">
+                                                                    <span class="flex items-center gap-1">
+                                                                        <svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                                                                            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                                                                        </svg>
+                                                                        X
+                                                                    </span>
+                                                                </template>
                                                             </div>
                                                             <!-- Duration/Time -->
-                                                            <div class="absolute bottom-2 right-2 bg-black/70 px-2 py-0.5 rounded text-xs">
+                                                            <div class="absolute bottom-2 right-2 bg-black/70 backdrop-blur-sm px-2 py-0.5 rounded text-xs">
                                                                 <span x-text="formatTimeAgo(item.posted_at)"></span>
                                                             </div>
                                                         </div>
 
                                                         <!-- No thumbnail fallback -->
-                                                        <div x-show="!item.thumbnail_url"
-                                                             class="h-12 flex items-center px-4 border-b border-gray-700/50"
-                                                             :class="item.platform === 'youtube' ? 'bg-red-900/20' : 'bg-gray-800'">
-                                                            <span class="text-lg mr-2" x-text="item.platform === 'youtube' ? '&#9654;' : '&#120143;'"></span>
+                                                        <div x-show="!getThumbnail(item)"
+                                                             class="h-14 flex items-center px-4 border-b border-gray-700/50"
+                                                             :class="item.platform === 'youtube' ? 'bg-gradient-to-r from-red-900/30 to-transparent' : 'bg-gradient-to-r from-blue-900/30 to-transparent'">
+                                                            <template x-if="item.platform === 'youtube'">
+                                                                <svg class="w-5 h-5 text-red-500 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                                                                    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                                                                </svg>
+                                                            </template>
+                                                            <template x-if="item.platform === 'x'">
+                                                                <svg class="w-5 h-5 text-gray-300 mr-2" viewBox="0 0 24 24" fill="currentColor">
+                                                                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                                                                </svg>
+                                                            </template>
                                                             <span class="text-sm font-medium text-cyan-400" x-text="item.source_name || item.source"></span>
                                                             <span class="ml-auto text-xs text-gray-500" x-text="formatTimeAgo(item.posted_at)"></span>
                                                         </div>
@@ -310,7 +399,17 @@
                                                             <h3 class="font-semibold text-sm mb-2 line-clamp-2" x-text="item.title || item.content.substring(0, 100)"></h3>
 
                                                             <!-- Source (when thumbnail exists) -->
-                                                            <div x-show="item.thumbnail_url" class="flex items-center gap-2 mb-2 text-xs text-gray-400">
+                                                            <div x-show="getThumbnail(item)" class="flex items-center gap-2 mb-2 text-xs text-gray-400">
+                                                                <template x-if="item.platform === 'youtube'">
+                                                                    <svg class="w-3.5 h-3.5 text-red-500" viewBox="0 0 24 24" fill="currentColor">
+                                                                        <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                                                                    </svg>
+                                                                </template>
+                                                                <template x-if="item.platform === 'x'">
+                                                                    <svg class="w-3.5 h-3.5 text-gray-400" viewBox="0 0 24 24" fill="currentColor">
+                                                                        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                                                                    </svg>
+                                                                </template>
                                                                 <span class="text-cyan-400 font-medium" x-text="item.source_name || item.source"></span>
                                                             </div>
 
@@ -380,19 +479,34 @@
                                                         </button>
                                                         <div x-show="expanded" x-collapse class="mt-4 space-y-2">
                                                             <template x-for="item in category.items" :key="item.platform_id">
-                                                                <div class="flex items-start gap-3 p-2 rounded bg-gray-700/50 hover:bg-gray-700">
-                                                                    <img x-show="item.thumbnail_url"
-                                                                         :src="item.thumbnail_url"
-                                                                         class="w-20 h-12 object-cover rounded"
-                                                                         loading="lazy">
+                                                                <div class="flex items-start gap-3 p-3 rounded-lg bg-gray-700/50 hover:bg-gray-700 transition-colors border border-transparent hover:border-gray-600">
+                                                                    <div x-show="getThumbnail(item)" class="relative w-24 h-14 rounded overflow-hidden flex-shrink-0">
+                                                                        <img :src="getThumbnail(item)"
+                                                                             class="w-full h-full object-cover"
+                                                                             loading="lazy">
+                                                                        <div x-show="item.platform === 'youtube'" class="absolute inset-0 flex items-center justify-center bg-black/20">
+                                                                            <svg class="w-6 h-6 text-white/80" fill="currentColor" viewBox="0 0 24 24">
+                                                                                <path d="M8 5v14l11-7z"/>
+                                                                            </svg>
+                                                                        </div>
+                                                                    </div>
                                                                     <div class="flex-1 min-w-0">
                                                                         <div class="flex items-center gap-2 text-xs text-gray-500 mb-1">
-                                                                            <span x-text="item.platform === 'youtube' ? '&#9654;' : '&#120143;'"></span>
+                                                                            <template x-if="item.platform === 'youtube'">
+                                                                                <svg class="w-3 h-3 text-red-500" viewBox="0 0 24 24" fill="currentColor">
+                                                                                    <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                                                                                </svg>
+                                                                            </template>
+                                                                            <template x-if="item.platform === 'x'">
+                                                                                <svg class="w-3 h-3 text-gray-400" viewBox="0 0 24 24" fill="currentColor">
+                                                                                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                                                                                </svg>
+                                                                            </template>
                                                                             <span x-text="item.source_name"></span>
                                                                         </div>
                                                                         <p class="text-sm truncate" x-text="item.title || item.content.substring(0, 80)"></p>
                                                                     </div>
-                                                                    <a :href="item.url" target="_blank" class="text-cyan-400 text-xs shrink-0">&#8599;</a>
+                                                                    <a :href="item.url" target="_blank" class="text-cyan-400 text-xs shrink-0 hover:text-cyan-300">&#8599;</a>
                                                                 </div>
                                                             </template>
                                                         </div>
@@ -413,16 +527,60 @@
                                 </h2>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <template x-for="item in currentBriefing.items.slice(0, 10)" :key="item.platform_id">
-                                        <div class="content-card bg-gray-800 rounded-lg p-4 border border-gray-700/50 hover:border-cyan-700/50">
-                                            <div class="flex items-center gap-2 mb-2">
-                                                <span x-text="item.platform === 'youtube' ? '&#9654;' : '&#120143;'"
-                                                      :class="item.platform === 'youtube' ? 'text-red-500' : ''"></span>
-                                                <span class="text-cyan-400 font-medium text-sm" x-text="item.source_name || item.source"></span>
-                                                <span class="text-xs text-gray-500 ml-auto" x-text="formatTimeAgo(item.posted_at)"></span>
+                                        <div class="content-card content-card-glow bg-gray-800 rounded-xl overflow-hidden border border-gray-700/50 hover:border-cyan-700/50"
+                                             :class="item.platform === 'youtube' ? 'card-gradient-youtube' : 'card-gradient-x'">
+                                            <!-- Thumbnail for fallback grid -->
+                                            <div x-show="getThumbnail(item)" class="thumbnail-container relative aspect-video bg-gray-900">
+                                                <img :src="getThumbnail(item)"
+                                                     :alt="item.title || 'Content thumbnail'"
+                                                     class="w-full h-full object-cover"
+                                                     loading="lazy"
+                                                     @error="$el.parentElement.style.display='none'">
+                                                <div x-show="item.platform === 'youtube'" class="play-overlay">
+                                                    <svg class="w-14 h-14 text-white/90" fill="currentColor" viewBox="0 0 24 24">
+                                                        <path d="M8 5v14l11-7z"/>
+                                                    </svg>
+                                                </div>
+                                                <div class="absolute top-2 left-2 px-2 py-1 rounded-full text-xs font-medium platform-badge"
+                                                     :class="item.platform === 'youtube' ? 'platform-badge-youtube' : 'platform-badge-x'">
+                                                    <template x-if="item.platform === 'youtube'">
+                                                        <span class="flex items-center gap-1">
+                                                            <svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                                                                <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                                                            </svg>
+                                                            YouTube
+                                                        </span>
+                                                    </template>
+                                                    <template x-if="item.platform === 'x'">
+                                                        <span class="flex items-center gap-1">
+                                                            <svg class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                                                                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                                                            </svg>
+                                                            X
+                                                        </span>
+                                                    </template>
+                                                </div>
                                             </div>
-                                            <p class="text-sm line-clamp-3" x-text="item.content"></p>
-                                            <div class="mt-2 flex items-center gap-2">
-                                                <a :href="item.url" target="_blank" class="text-cyan-400 text-xs hover:underline">View &#8599;</a>
+                                            <div class="p-4">
+                                                <div class="flex items-center gap-2 mb-2">
+                                                    <template x-if="item.platform === 'youtube'">
+                                                        <svg class="w-4 h-4 text-red-500" viewBox="0 0 24 24" fill="currentColor">
+                                                            <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                                                        </svg>
+                                                    </template>
+                                                    <template x-if="item.platform === 'x'">
+                                                        <svg class="w-4 h-4 text-gray-300" viewBox="0 0 24 24" fill="currentColor">
+                                                            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                                                        </svg>
+                                                    </template>
+                                                    <span class="text-cyan-400 font-medium text-sm" x-text="item.source_name || item.source"></span>
+                                                    <span class="text-xs text-gray-500 ml-auto" x-text="formatTimeAgo(item.posted_at)"></span>
+                                                </div>
+                                                <h3 x-show="item.title" class="font-semibold text-sm mb-2 line-clamp-2" x-text="item.title"></h3>
+                                                <p class="text-sm text-gray-400 line-clamp-3" x-text="item.content"></p>
+                                                <div class="mt-3 pt-2 border-t border-gray-700/50 flex items-center gap-2">
+                                                    <a :href="item.url" target="_blank" class="text-cyan-400 text-xs hover:text-cyan-300 transition-colors">View &#8599;</a>
+                                                </div>
                                             </div>
                                         </div>
                                     </template>
@@ -528,27 +686,56 @@
                 </div>
 
                 <template x-for="result in exploreResults" :key="result.id">
-                    <div class="bg-gray-700/50 rounded-lg overflow-hidden hover:bg-gray-700 transition-colors">
+                    <div class="bg-gray-700/50 rounded-lg overflow-hidden hover:bg-gray-700 transition-colors border border-transparent hover:border-gray-600">
                         <!-- Thumbnail -->
-                        <div x-show="result.thumbnail_url" class="relative aspect-video">
-                            <img :src="result.thumbnail_url"
+                        <div x-show="getThumbnail(result)" class="thumbnail-container relative aspect-video">
+                            <img :src="getThumbnail(result)"
                                  class="w-full h-full object-cover"
                                  loading="lazy">
-                            <div class="absolute top-2 left-2 px-2 py-0.5 rounded-full text-xs"
-                                 :class="result.platform === 'youtube' ? 'bg-red-600' : 'bg-gray-800'">
-                                <span x-text="result.platform"></span>
+                            <div x-show="result.platform === 'youtube'" class="play-overlay">
+                                <svg class="w-10 h-10 text-white/90" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M8 5v14l11-7z"/>
+                                </svg>
+                            </div>
+                            <div class="absolute top-2 left-2 px-2 py-0.5 rounded-full text-xs platform-badge"
+                                 :class="result.platform === 'youtube' ? 'platform-badge-youtube' : 'platform-badge-x'">
+                                <template x-if="result.platform === 'youtube'">
+                                    <span class="flex items-center gap-1">
+                                        <svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                                        </svg>
+                                        YouTube
+                                    </span>
+                                </template>
+                                <template x-if="result.platform === 'x'">
+                                    <span class="flex items-center gap-1">
+                                        <svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                                        </svg>
+                                        X
+                                    </span>
+                                </template>
                             </div>
                         </div>
                         <div class="p-3">
                             <div class="flex items-center gap-2 text-xs text-gray-500 mb-1">
-                                <span x-text="result.platform === 'youtube' ? '&#9654;' : '&#120143;'"></span>
+                                <template x-if="result.platform === 'youtube'">
+                                    <svg class="w-3 h-3 text-red-500" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                                    </svg>
+                                </template>
+                                <template x-if="result.platform === 'x'">
+                                    <svg class="w-3 h-3 text-gray-400" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                                    </svg>
+                                </template>
                                 <span x-text="result.source_name || result.source_id"></span>
-                                <span class="ml-auto text-cyan-400"><span x-text="(result.similarity * 100).toFixed(0)"></span>%</span>
+                                <span class="ml-auto text-cyan-400 font-medium"><span x-text="(result.similarity * 100).toFixed(0)"></span>%</span>
                             </div>
                             <p class="text-sm line-clamp-3" x-text="result.chunk_content"></p>
                             <div class="mt-2 flex items-center gap-2">
                                 <a x-show="result.url" :href="result.url" target="_blank"
-                                   class="text-xs text-cyan-400 hover:text-cyan-300">View &#8599;</a>
+                                   class="text-xs text-cyan-400 hover:text-cyan-300 transition-colors">View &#8599;</a>
                             </div>
                         </div>
                     </div>
@@ -687,6 +874,48 @@
                     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
                     if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
                     return num.toString();
+                },
+
+                // Get YouTube thumbnail URL - uses backend thumbnail_url or generates from video_id
+                getYouTubeThumbnail(item) {
+                    // If backend already provides thumbnail_url, use it
+                    if (item.thumbnail_url) return item.thumbnail_url;
+
+                    // Try to extract video_id from platform_id or url
+                    let videoId = null;
+
+                    // platform_id might be the video ID directly
+                    if (item.platform_id && item.platform === 'youtube') {
+                        videoId = item.platform_id;
+                    }
+
+                    // Or extract from URL patterns like youtube.com/watch?v=XXX or youtu.be/XXX
+                    if (!videoId && item.url) {
+                        const patterns = [
+                            /youtube\.com\/watch\?v=([^&]+)/,
+                            /youtu\.be\/([^?]+)/,
+                            /youtube\.com\/embed\/([^?]+)/
+                        ];
+                        for (const pattern of patterns) {
+                            const match = item.url.match(pattern);
+                            if (match) {
+                                videoId = match[1];
+                                break;
+                            }
+                        }
+                    }
+
+                    if (videoId) {
+                        return `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
+                    }
+                    return null;
+                },
+
+                // Get thumbnail for any platform item
+                getThumbnail(item) {
+                    if (item.thumbnail_url) return item.thumbnail_url;
+                    if (item.platform === 'youtube') return this.getYouTubeThumbnail(item);
+                    return null;
                 },
 
                 formatTime(dateStr) {
