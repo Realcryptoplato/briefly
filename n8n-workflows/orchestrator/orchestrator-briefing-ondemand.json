@@ -1,0 +1,630 @@
+{
+  "name": "Orchestrator - Briefing On-Demand",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "briefing/ondemand",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger-1",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [200, 400],
+      "webhookId": "briefing-ondemand-trigger"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "assign-input-1",
+              "name": "platforms",
+              "value": "={{ $json.body.platforms || ['x', 'youtube', 'podcast'] }}",
+              "type": "array"
+            },
+            {
+              "id": "assign-input-2",
+              "name": "hours_back",
+              "value": "={{ $json.body.hours_back || 24 }}",
+              "type": "number"
+            },
+            {
+              "id": "assign-input-3",
+              "name": "user_id",
+              "value": "={{ $json.body.user_id }}",
+              "type": "string"
+            },
+            {
+              "id": "assign-input-4",
+              "name": "run_id",
+              "value": "={{ $runIndex }}-{{ $now.toMillis() }}",
+              "type": "string"
+            },
+            {
+              "id": "assign-input-5",
+              "name": "started_at",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-input-1",
+      "name": "Parse Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [420, 400]
+    },
+    {
+      "parameters": {
+        "workflowId": "={{ $workflow.id.replace('orchestrator-briefing-ondemand', 'sub-progress-report') }}",
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "workflow": "orchestrator-briefing-ondemand",
+            "run_id": "={{ $json.run_id }}",
+            "status": "started",
+            "message": "On-demand briefing extraction started",
+            "user_id": "={{ $json.user_id }}",
+            "platforms": "={{ $json.platforms }}",
+            "timestamp": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "progress-start-1",
+      "name": "Report Start",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [640, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-x",
+              "leftValue": "={{ $json.platforms.includes('x') }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-x-1",
+      "name": "X Platform?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [900, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-youtube",
+              "leftValue": "={{ $json.platforms.includes('youtube') }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-youtube-1",
+      "name": "YouTube Platform?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [900, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-podcast",
+              "leftValue": "={{ $json.platforms.includes('podcast') }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-podcast-1",
+      "name": "Podcast Platform?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [900, 600]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "adapter-x",
+          "mode": "name"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "hours_back": "={{ $('Parse Input').item.json.hours_back }}",
+            "user_id": "={{ $('Parse Input').item.json.user_id }}",
+            "run_id": "={{ $('Parse Input').item.json.run_id }}",
+            "triggered_by": "orchestrator-ondemand"
+          }
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "exec-x-adapter-1",
+      "name": "Execute X Adapter",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1150, 100]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "adapter-youtube",
+          "mode": "name"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "hours_back": "={{ $('Parse Input').item.json.hours_back }}",
+            "user_id": "={{ $('Parse Input').item.json.user_id }}",
+            "run_id": "={{ $('Parse Input').item.json.run_id }}",
+            "triggered_by": "orchestrator-ondemand"
+          }
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "exec-youtube-adapter-1",
+      "name": "Execute YouTube Adapter",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1150, 350]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "adapter-podcast",
+          "mode": "name"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "hours_back": "={{ $('Parse Input').item.json.hours_back }}",
+            "user_id": "={{ $('Parse Input').item.json.user_id }}",
+            "run_id": "={{ $('Parse Input').item.json.run_id }}",
+            "triggered_by": "orchestrator-ondemand"
+          }
+        },
+        "options": {
+          "waitForSubWorkflow": true
+        }
+      },
+      "id": "exec-podcast-adapter-1",
+      "name": "Execute Podcast Adapter",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1150, 550]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "skip-x",
+              "name": "platform",
+              "value": "x",
+              "type": "string"
+            },
+            {
+              "id": "skip-x-2",
+              "name": "skipped",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "skip-x-3",
+              "name": "items_extracted",
+              "value": 0,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "skip-x-1",
+      "name": "Skip X",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1150, 200]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "skip-youtube",
+              "name": "platform",
+              "value": "youtube",
+              "type": "string"
+            },
+            {
+              "id": "skip-youtube-2",
+              "name": "skipped",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "skip-youtube-3",
+              "name": "items_extracted",
+              "value": 0,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "skip-youtube-1",
+      "name": "Skip YouTube",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1150, 450]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "skip-podcast",
+              "name": "platform",
+              "value": "podcast",
+              "type": "string"
+            },
+            {
+              "id": "skip-podcast-2",
+              "name": "skipped",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "skip-podcast-3",
+              "name": "items_extracted",
+              "value": 0,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "skip-podcast-1",
+      "name": "Skip Podcast",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1150, 650]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "id": "merge-results-1",
+      "name": "Merge Results",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [1400, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aggregate results from all platform adapters\nconst items = $input.all();\n\nlet totalExtracted = 0;\nlet totalIngested = 0;\nlet totalErrors = 0;\nconst platformResults = {};\n\nfor (const item of items) {\n  const data = item.json;\n  const platform = data.platform || 'unknown';\n  \n  platformResults[platform] = {\n    items_extracted: data.items_extracted || 0,\n    items_ingested: data.items_ingested || 0,\n    errors: data.errors || 0,\n    skipped: data.skipped || false,\n    success: data.success !== false\n  };\n  \n  if (!data.skipped) {\n    totalExtracted += data.items_extracted || 0;\n    totalIngested += data.items_ingested || 0;\n    totalErrors += data.errors || 0;\n  }\n}\n\nconst success = totalErrors === 0 || totalExtracted > 0;\n\nreturn [{\n  json: {\n    success,\n    total_items_extracted: totalExtracted,\n    total_items_ingested: totalIngested,\n    total_errors: totalErrors,\n    platforms: platformResults,\n    completed_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "code-aggregate-1",
+      "name": "Aggregate Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1600, 400]
+    },
+    {
+      "parameters": {
+        "workflowId": "={{ $workflow.id.replace('orchestrator-briefing-ondemand', 'sub-progress-report') }}",
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "workflow": "orchestrator-briefing-ondemand",
+            "run_id": "={{ $('Parse Input').item.json.run_id }}",
+            "status": "={{ $json.success ? 'completed' : 'error' }}",
+            "message": "={{ $json.success ? 'Extraction completed successfully' : 'Extraction completed with errors' }}",
+            "user_id": "={{ $('Parse Input').item.json.user_id }}",
+            "total_extracted": "={{ $json.total_items_extracted }}",
+            "total_ingested": "={{ $json.total_items_ingested }}",
+            "total_errors": "={{ $json.total_errors }}",
+            "timestamp": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "progress-complete-1",
+      "name": "Report Completion",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1820, 400]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: $json.success, items_extracted: $json.total_items_extracted, items_ingested: $json.total_items_ingested, errors: $json.total_errors, platforms: $json.platforms, completed_at: $json.completed_at }) }}",
+        "options": {
+          "responseCode": "={{ $json.success ? 200 : 207 }}"
+        }
+      },
+      "id": "webhook-response-1",
+      "name": "Webhook Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2040, 400]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Parse Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Input": {
+      "main": [
+        [
+          {
+            "node": "Report Start",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Report Start": {
+      "main": [
+        [
+          {
+            "node": "X Platform?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "YouTube Platform?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Podcast Platform?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "X Platform?": {
+      "main": [
+        [
+          {
+            "node": "Execute X Adapter",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip X",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "YouTube Platform?": {
+      "main": [
+        [
+          {
+            "node": "Execute YouTube Adapter",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip YouTube",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Podcast Platform?": {
+      "main": [
+        [
+          {
+            "node": "Execute Podcast Adapter",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip Podcast",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute X Adapter": {
+      "main": [
+        [
+          {
+            "node": "Merge Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute YouTube Adapter": {
+      "main": [
+        [
+          {
+            "node": "Merge Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Podcast Adapter": {
+      "main": [
+        [
+          {
+            "node": "Merge Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Skip X": {
+      "main": [
+        [
+          {
+            "node": "Merge Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Skip YouTube": {
+      "main": [
+        [
+          {
+            "node": "Merge Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Skip Podcast": {
+      "main": [
+        [
+          {
+            "node": "Merge Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Results": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Results": {
+      "main": [
+        [
+          {
+            "node": "Report Completion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Report Completion": {
+      "main": [
+        [
+          {
+            "node": "Webhook Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "briefly-n8n"
+  },
+  "pinData": {},
+  "versionId": "1.0.0",
+  "triggerCount": 1,
+  "tags": [
+    {
+      "id": "orchestrator",
+      "name": "orchestrator"
+    },
+    {
+      "id": "briefly",
+      "name": "briefly"
+    }
+  ]
+}

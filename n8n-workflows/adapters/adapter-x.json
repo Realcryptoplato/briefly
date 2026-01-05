@@ -1,0 +1,1064 @@
+{
+  "name": "Adapter - X/Twitter",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "cron-trigger-1",
+      "name": "Cron Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 400]
+    },
+    {
+      "parameters": {},
+      "id": "workflow-trigger-1",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [200, 600]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "id": "merge-trigger-1",
+      "name": "Merge Triggers",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [420, 500]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "init-1",
+              "name": "platform",
+              "value": "x",
+              "type": "string"
+            },
+            {
+              "id": "init-2",
+              "name": "run_id",
+              "value": "={{ $json.run_id || `x-${$now.toMillis()}` }}",
+              "type": "string"
+            },
+            {
+              "id": "init-3",
+              "name": "hours_back",
+              "value": "={{ $json.hours_back || 24 }}",
+              "type": "number"
+            },
+            {
+              "id": "init-4",
+              "name": "user_id",
+              "value": "={{ $json.user_id || null }}",
+              "type": "string"
+            },
+            {
+              "id": "init-5",
+              "name": "triggered_by",
+              "value": "={{ $json.triggered_by || 'cron' }}",
+              "type": "string"
+            },
+            {
+              "id": "init-6",
+              "name": "started_at",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-init-1",
+      "name": "Initialize",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [620, 500]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.BRIEFLY_API_URL }}/api/sources",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "platform",
+              "value": "x"
+            },
+            {
+              "name": "active_only",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "http-sources-1",
+      "name": "Fetch Sources",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [840, 500],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "briefly-api-auth",
+          "name": "Briefly API Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-sources",
+              "leftValue": "={{ $json.sources?.length > 0 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-sources-1",
+      "name": "Has Sources?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1060, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Rate limit state management\n// Uses n8n static data to persist across executions\n\nconst staticData = $getWorkflowStaticData('global');\n\n// Initialize rate limit state if not present\nif (!staticData.rateLimits) {\n  staticData.rateLimits = {\n    credentials: [\n      { id: 'token_1', remaining: 100, reset_at: null },\n      { id: 'token_2', remaining: 100, reset_at: null }\n    ],\n    last_updated: null\n  };\n}\n\nconst now = new Date();\nconst credentials = staticData.rateLimits.credentials;\n\n// Reset expired limits\nfor (const cred of credentials) {\n  if (cred.reset_at && new Date(cred.reset_at) <= now) {\n    cred.remaining = 100;\n    cred.reset_at = null;\n  }\n}\n\n// Find available credential\nlet selectedCredential = null;\nlet waitSeconds = 0;\n\nfor (const cred of credentials) {\n  if (cred.remaining > 0) {\n    selectedCredential = cred.id;\n    break;\n  }\n}\n\n// If all exhausted, calculate wait time\nif (!selectedCredential) {\n  const resetTimes = credentials\n    .filter(c => c.reset_at)\n    .map(c => new Date(c.reset_at));\n  \n  if (resetTimes.length > 0) {\n    const earliestReset = Math.min(...resetTimes.map(d => d.getTime()));\n    waitSeconds = Math.ceil((earliestReset - now.getTime()) / 1000);\n  } else {\n    waitSeconds = 900; // Default 15 min wait\n  }\n}\n\nstaticData.rateLimits.last_updated = now.toISOString();\n\nreturn [{\n  json: {\n    can_proceed: !!selectedCredential,\n    use_credential: selectedCredential,\n    wait_seconds: waitSeconds,\n    rate_limit_state: staticData.rateLimits\n  }\n}];"
+      },
+      "id": "code-rate-limit-1",
+      "name": "Check Rate Limits",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1300, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "can-proceed",
+              "leftValue": "={{ $json.can_proceed }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-can-proceed-1",
+      "name": "Can Proceed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1520, 400]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "={{ $('Fetch Sources').item.json.sources }}",
+        "options": {}
+      },
+      "id": "split-sources-1",
+      "name": "Split Sources",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [1780, 300]
+    },
+    {
+      "parameters": {
+        "batchSize": 10,
+        "options": {}
+      },
+      "id": "batch-sources-1",
+      "name": "Batch Sources",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [2000, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.twitter.com/2/users/by/username/{{ $json.identifier.replace('@', '') }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "user.fields",
+              "value": "id,name,username,profile_image_url"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "http-user-lookup-1",
+      "name": "Lookup User ID",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2220, 300],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "x-api-oauth",
+          "name": "X API OAuth"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-user-id",
+              "leftValue": "={{ $json.data?.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "isNotEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-user-found-1",
+      "name": "User Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2440, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://api.twitter.com/2/users/{{ $json.data.id }}/tweets",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "oAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "tweet.fields",
+              "value": "id,text,author_id,created_at,public_metrics,entities"
+            },
+            {
+              "name": "max_results",
+              "value": "10"
+            },
+            {
+              "name": "start_time",
+              "value": "={{ DateTime.now().minus({ hours: $('Initialize').item.json.hours_back }).toISO() }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json",
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "http-fetch-tweets-1",
+      "name": "Fetch Tweets",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2680, 200],
+      "credentials": {
+        "oAuth2Api": {
+          "id": "x-api-oauth",
+          "name": "X API OAuth"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Update rate limit state based on response headers\nconst staticData = $getWorkflowStaticData('global');\nconst response = $input.first().json;\nconst headers = response.headers || {};\n\nconst remaining = parseInt(headers['x-rate-limit-remaining'] || '99');\nconst resetTimestamp = parseInt(headers['x-rate-limit-reset'] || '0');\n\n// Update the active credential's rate limit\nconst activeCred = staticData.rateLimits?.credentials?.[0];\nif (activeCred) {\n  activeCred.remaining = remaining;\n  if (resetTimestamp > 0) {\n    activeCred.reset_at = new Date(resetTimestamp * 1000).toISOString();\n  }\n}\n\n// Check if rate limited (429 response)\nconst isRateLimited = response.statusCode === 429;\n\nreturn [{\n  json: {\n    rate_limited: isRateLimited,\n    remaining,\n    reset_at: activeCred?.reset_at,\n    tweets: isRateLimited ? [] : (response.body?.data || []),\n    user_id: $('Lookup User ID').item.json.data?.id,\n    username: $('Lookup User ID').item.json.data?.username,\n    name: $('Lookup User ID').item.json.data?.name\n  }\n}];"
+      },
+      "id": "code-rate-update-1",
+      "name": "Update Rate Limits",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2920, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Transform tweets to ContentItem format\nconst input = $input.first().json;\nconst tweets = input.tweets || [];\nconst username = input.username;\nconst name = input.name;\n\nconst items = tweets.map(tweet => ({\n  platform: 'x',\n  platform_id: tweet.id,\n  source_identifier: `@${username}`,\n  source_name: name,\n  content: tweet.text,\n  url: `https://x.com/${username}/status/${tweet.id}`,\n  posted_at: tweet.created_at,\n  fetched_at: new Date().toISOString(),\n  metrics: {\n    like_count: tweet.public_metrics?.like_count || 0,\n    retweet_count: tweet.public_metrics?.retweet_count || 0,\n    reply_count: tweet.public_metrics?.reply_count || 0,\n    impression_count: tweet.public_metrics?.impression_count || 0\n  },\n  metadata: {\n    has_media: !!(tweet.entities?.media?.length > 0),\n    has_urls: !!(tweet.entities?.urls?.length > 0)\n  }\n}));\n\nreturn [{\n  json: {\n    items,\n    count: items.length,\n    source: `@${username}`,\n    rate_limited: input.rate_limited\n  }\n}];"
+      },
+      "id": "code-transform-1",
+      "name": "Transform to ContentItem",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3140, 200]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "skip-user-1",
+              "name": "items",
+              "value": [],
+              "type": "array"
+            },
+            {
+              "id": "skip-user-2",
+              "name": "count",
+              "value": 0,
+              "type": "number"
+            },
+            {
+              "id": "skip-user-3",
+              "name": "error",
+              "value": "User not found",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-user-not-found-1",
+      "name": "User Not Found",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [2680, 400]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "id": "merge-tweets-1",
+      "name": "Merge Tweets",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [3360, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aggregate all tweets from all sources\nconst allItems = $input.all();\n\nlet allContentItems = [];\nlet totalErrors = 0;\nlet rateLimitedCount = 0;\n\nfor (const item of allItems) {\n  const data = item.json;\n  if (data.items && Array.isArray(data.items)) {\n    allContentItems = allContentItems.concat(data.items);\n  }\n  if (data.error) {\n    totalErrors++;\n  }\n  if (data.rate_limited) {\n    rateLimitedCount++;\n  }\n}\n\nreturn [{\n  json: {\n    all_items: allContentItems,\n    total_count: allContentItems.length,\n    errors: totalErrors,\n    rate_limited_sources: rateLimitedCount\n  }\n}];"
+      },
+      "id": "code-aggregate-1",
+      "name": "Aggregate All Tweets",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3580, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-items",
+              "leftValue": "={{ $json.total_count > 0 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-has-items-1",
+      "name": "Has Items?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [3800, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.BRIEFLY_API_URL }}/api/content/ingest",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ items: $json.all_items, platform: 'x' }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "http-ingest-1",
+      "name": "Ingest Content",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [4040, 200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "briefly-api-auth",
+          "name": "Briefly API Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "no-items-1",
+              "name": "inserted",
+              "value": 0,
+              "type": "number"
+            },
+            {
+              "id": "no-items-2",
+              "name": "duplicates_skipped",
+              "value": 0,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-no-items-1",
+      "name": "No Items to Ingest",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [4040, 400]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "id": "merge-final-1",
+      "name": "Merge Final",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [4280, 300]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "sub-progress-report",
+          "mode": "name"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "workflow": "adapter-x",
+            "run_id": "={{ $('Initialize').item.json.run_id }}",
+            "status": "completed",
+            "platform": "x",
+            "items_extracted": "={{ $('Aggregate All Tweets').item.json.total_count }}",
+            "items_ingested": "={{ $json.inserted || 0 }}",
+            "duplicates_skipped": "={{ $json.duplicates_skipped || 0 }}",
+            "errors": "={{ $('Aggregate All Tweets').item.json.errors }}",
+            "rate_limited_sources": "={{ $('Aggregate All Tweets').item.json.rate_limited_sources }}",
+            "timestamp": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "exec-progress-1",
+      "name": "Report Progress",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [4500, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "output-1",
+              "name": "platform",
+              "value": "x",
+              "type": "string"
+            },
+            {
+              "id": "output-2",
+              "name": "success",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "output-3",
+              "name": "items_extracted",
+              "value": "={{ $('Aggregate All Tweets').item.json.total_count }}",
+              "type": "number"
+            },
+            {
+              "id": "output-4",
+              "name": "items_ingested",
+              "value": "={{ $('Merge Final').item.json.inserted || 0 }}",
+              "type": "number"
+            },
+            {
+              "id": "output-5",
+              "name": "errors",
+              "value": "={{ $('Aggregate All Tweets').item.json.errors }}",
+              "type": "number"
+            },
+            {
+              "id": "output-6",
+              "name": "completed_at",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-output-1",
+      "name": "Set Output",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [4720, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "rate-limit-wait-1",
+              "name": "platform",
+              "value": "x",
+              "type": "string"
+            },
+            {
+              "id": "rate-limit-wait-2",
+              "name": "success",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "rate-limit-wait-3",
+              "name": "items_extracted",
+              "value": 0,
+              "type": "number"
+            },
+            {
+              "id": "rate-limit-wait-4",
+              "name": "items_ingested",
+              "value": 0,
+              "type": "number"
+            },
+            {
+              "id": "rate-limit-wait-5",
+              "name": "errors",
+              "value": 0,
+              "type": "number"
+            },
+            {
+              "id": "rate-limit-wait-6",
+              "name": "rate_limited",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "rate-limit-wait-7",
+              "name": "wait_seconds",
+              "value": "={{ $('Check Rate Limits').item.json.wait_seconds }}",
+              "type": "number"
+            },
+            {
+              "id": "rate-limit-wait-8",
+              "name": "message",
+              "value": "Rate limit exhausted, retry later",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-rate-limited-1",
+      "name": "Rate Limited",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1780, 500]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "no-sources-1",
+              "name": "platform",
+              "value": "x",
+              "type": "string"
+            },
+            {
+              "id": "no-sources-2",
+              "name": "success",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "no-sources-3",
+              "name": "items_extracted",
+              "value": 0,
+              "type": "number"
+            },
+            {
+              "id": "no-sources-4",
+              "name": "items_ingested",
+              "value": 0,
+              "type": "number"
+            },
+            {
+              "id": "no-sources-5",
+              "name": "errors",
+              "value": 0,
+              "type": "number"
+            },
+            {
+              "id": "no-sources-6",
+              "name": "message",
+              "value": "No X sources configured",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-no-sources-1",
+      "name": "No Sources",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1300, 600]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "sub-progress-report",
+          "mode": "name"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "workflow": "adapter-x",
+            "run_id": "={{ $('Initialize').item.json.run_id }}",
+            "status": "completed",
+            "platform": "x",
+            "items_extracted": 0,
+            "items_ingested": 0,
+            "message": "={{ $json.message }}",
+            "timestamp": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "exec-progress-empty-1",
+      "name": "Report Empty Progress",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1520, 600]
+    }
+  ],
+  "connections": {
+    "Cron Trigger": {
+      "main": [
+        [
+          {
+            "node": "Merge Triggers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Merge Triggers",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Triggers": {
+      "main": [
+        [
+          {
+            "node": "Initialize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Initialize": {
+      "main": [
+        [
+          {
+            "node": "Fetch Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Sources": {
+      "main": [
+        [
+          {
+            "node": "Has Sources?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Sources?": {
+      "main": [
+        [
+          {
+            "node": "Check Rate Limits",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Rate Limits": {
+      "main": [
+        [
+          {
+            "node": "Can Proceed?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Can Proceed?": {
+      "main": [
+        [
+          {
+            "node": "Split Sources",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rate Limited",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Sources": {
+      "main": [
+        [
+          {
+            "node": "Batch Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Batch Sources": {
+      "main": [
+        [
+          {
+            "node": "Lookup User ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup User ID": {
+      "main": [
+        [
+          {
+            "node": "User Found?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "User Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "User Found?": {
+      "main": [
+        [
+          {
+            "node": "Fetch Tweets",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "User Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Tweets": {
+      "main": [
+        [
+          {
+            "node": "Update Rate Limits",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Rate Limits": {
+      "main": [
+        [
+          {
+            "node": "Transform to ContentItem",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transform to ContentItem": {
+      "main": [
+        [
+          {
+            "node": "Merge Tweets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "User Not Found": {
+      "main": [
+        [
+          {
+            "node": "Merge Tweets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Tweets": {
+      "main": [
+        [
+          {
+            "node": "Batch Sources",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Aggregate All Tweets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate All Tweets": {
+      "main": [
+        [
+          {
+            "node": "Has Items?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Items?": {
+      "main": [
+        [
+          {
+            "node": "Ingest Content",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Items to Ingest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ingest Content": {
+      "main": [
+        [
+          {
+            "node": "Merge Final",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No Items to Ingest": {
+      "main": [
+        [
+          {
+            "node": "Merge Final",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Final": {
+      "main": [
+        [
+          {
+            "node": "Report Progress",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Report Progress": {
+      "main": [
+        [
+          {
+            "node": "Set Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No Sources": {
+      "main": [
+        [
+          {
+            "node": "Report Empty Progress",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "staticData": {
+    "global": {
+      "rateLimits": {
+        "credentials": [
+          {"id": "token_1", "remaining": 100, "reset_at": null},
+          {"id": "token_2", "remaining": 100, "reset_at": null}
+        ],
+        "last_updated": null
+      }
+    }
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "briefly-n8n"
+  },
+  "pinData": {},
+  "versionId": "1.0.0",
+  "triggerCount": 1,
+  "tags": [
+    {
+      "id": "adapter",
+      "name": "adapter"
+    },
+    {
+      "id": "x",
+      "name": "x"
+    },
+    {
+      "id": "briefly",
+      "name": "briefly"
+    }
+  ]
+}

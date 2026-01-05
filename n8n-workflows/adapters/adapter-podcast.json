@@ -1,0 +1,1007 @@
+{
+  "name": "Adapter - Podcast (Taddy)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "cron-trigger-1",
+      "name": "Cron Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 400]
+    },
+    {
+      "parameters": {},
+      "id": "workflow-trigger-1",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1,
+      "position": [200, 600]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "id": "merge-trigger-1",
+      "name": "Merge Triggers",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [420, 500]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "init-1",
+              "name": "platform",
+              "value": "podcast",
+              "type": "string"
+            },
+            {
+              "id": "init-2",
+              "name": "run_id",
+              "value": "={{ $json.run_id || `podcast-${$now.toMillis()}` }}",
+              "type": "string"
+            },
+            {
+              "id": "init-3",
+              "name": "hours_back",
+              "value": "={{ $json.hours_back || 72 }}",
+              "type": "number"
+            },
+            {
+              "id": "init-4",
+              "name": "user_id",
+              "value": "={{ $json.user_id || null }}",
+              "type": "string"
+            },
+            {
+              "id": "init-5",
+              "name": "triggered_by",
+              "value": "={{ $json.triggered_by || 'cron' }}",
+              "type": "string"
+            },
+            {
+              "id": "init-6",
+              "name": "started_at",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-init-1",
+      "name": "Initialize",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [620, 500]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.BRIEFLY_API_URL }}/api/sources",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "platform",
+              "value": "podcast"
+            },
+            {
+              "name": "active_only",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "http-sources-1",
+      "name": "Fetch Sources",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [840, 500],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "briefly-api-auth",
+          "name": "Briefly API Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-sources",
+              "leftValue": "={{ $json.sources?.length > 0 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-sources-1",
+      "name": "Has Sources?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1060, 500]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "={{ $json.sources }}",
+        "options": {}
+      },
+      "id": "split-sources-1",
+      "name": "Split Sources",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [1300, 400]
+    },
+    {
+      "parameters": {
+        "batchSize": 3,
+        "options": {}
+      },
+      "id": "batch-sources-1",
+      "name": "Batch Sources",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [1520, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.taddy.org",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "X-USER-ID",
+              "value": "={{ $env.TADDY_USER_ID }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"query GetPodcastEpisodes($uuid: ID!, $limitPerPage: Int, $page: Int) { getPodcastSeries(uuid: $uuid) { uuid name description episodes(limitPerPage: $limitPerPage, page: $page) { uuid name description datePublished audioUrl duration contentUrl } } }\",\n  \"variables\": {\n    \"uuid\": \"{{ $json.platform_id || $json.identifier }}\",\n    \"limitPerPage\": 10,\n    \"page\": 1\n  }\n}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "http-taddy-1",
+      "name": "Query Taddy API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1740, 400],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "taddy-api-key",
+          "name": "Taddy API Key"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-podcast",
+              "leftValue": "={{ $json.data?.getPodcastSeries }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "isNotEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-podcast-found-1",
+      "name": "Podcast Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1960, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Filter and transform podcast episodes\nconst response = $input.first().json;\nconst podcast = response.data?.getPodcastSeries;\n\nif (!podcast) {\n  return [{\n    json: {\n      items: [],\n      count: 0,\n      podcast_id: null,\n      podcast_name: null\n    }\n  }];\n}\n\nconst episodes = podcast.episodes || [];\nconst hoursBack = $('Initialize').item.json.hours_back;\nconst cutoffDate = new Date();\ncutoffDate.setHours(cutoffDate.getHours() - hoursBack);\n\nconst recentEpisodes = episodes.filter(ep => {\n  if (!ep.datePublished) return false;\n  const pubDate = new Date(ep.datePublished);\n  return pubDate >= cutoffDate;\n});\n\nconst items = recentEpisodes.map(ep => ({\n  platform: 'podcast',\n  platform_id: ep.uuid,\n  source_identifier: podcast.uuid,\n  source_name: podcast.name,\n  content: ep.description || '',\n  url: ep.contentUrl || `https://taddy.org/podcast/${podcast.uuid}/episode/${ep.uuid}`,\n  posted_at: ep.datePublished,\n  fetched_at: new Date().toISOString(),\n  metrics: {\n    duration_seconds: ep.duration || 0\n  },\n  metadata: {\n    title: ep.name,\n    audio_url: ep.audioUrl,\n    has_transcript: false,\n    transcript_source: null,\n    can_transcribe_locally: !!ep.audioUrl,\n    podcast_description: podcast.description\n  }\n}));\n\nreturn [{\n  json: {\n    items,\n    count: items.length,\n    podcast_id: podcast.uuid,\n    podcast_name: podcast.name\n  }\n}];"
+      },
+      "id": "code-transform-1",
+      "name": "Transform Episodes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2200, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "needs-transcription",
+              "leftValue": "={{ $json.items.some(i => i.metadata.can_transcribe_locally && !i.metadata.has_transcript) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-needs-transcription-1",
+      "name": "Needs Transcription?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [2420, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Queue episodes for transcription\nconst items = $input.first().json.items;\nconst needsTranscription = items.filter(i => \n  i.metadata.can_transcribe_locally && !i.metadata.has_transcript\n);\n\nconst transcriptionQueue = needsTranscription.map(item => ({\n  platform: 'podcast',\n  platform_id: item.platform_id,\n  audio_url: item.metadata.audio_url,\n  duration_seconds: item.metrics.duration_seconds,\n  source_name: item.source_name,\n  title: item.metadata.title\n}));\n\nreturn [{\n  json: {\n    items: $input.first().json.items,\n    count: $input.first().json.count,\n    podcast_id: $input.first().json.podcast_id,\n    podcast_name: $input.first().json.podcast_name,\n    transcription_queue: transcriptionQueue,\n    transcription_count: transcriptionQueue.length\n  }\n}];"
+      },
+      "id": "code-queue-transcription-1",
+      "name": "Queue Transcription",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2660, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.BRIEFLY_API_URL }}/api/content/transcribe",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ items: $json.transcription_queue }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "http-transcription-queue-1",
+      "name": "Submit Transcription Jobs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2900, 200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "briefly-api-auth",
+          "name": "Briefly API Auth"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "skip-transcription-1",
+              "name": "transcription_queue",
+              "value": [],
+              "type": "array"
+            },
+            {
+              "id": "skip-transcription-2",
+              "name": "transcription_count",
+              "value": 0,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {},
+        "includeOtherFields": true
+      },
+      "id": "set-skip-transcription-1",
+      "name": "Skip Transcription",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [2660, 400]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "podcast-error-1",
+              "name": "items",
+              "value": [],
+              "type": "array"
+            },
+            {
+              "id": "podcast-error-2",
+              "name": "count",
+              "value": 0,
+              "type": "number"
+            },
+            {
+              "id": "podcast-error-3",
+              "name": "error",
+              "value": "Podcast not found in Taddy",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-podcast-not-found-1",
+      "name": "Podcast Not Found",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [2200, 500]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "id": "merge-episodes-1",
+      "name": "Merge Episodes",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [3140, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aggregate all episodes from all podcasts\nconst allItems = $input.all();\n\nlet allContentItems = [];\nlet totalErrors = 0;\nlet totalTranscriptionJobs = 0;\n\nfor (const item of allItems) {\n  const data = item.json;\n  if (data.items && Array.isArray(data.items)) {\n    allContentItems = allContentItems.concat(data.items);\n  }\n  if (data.error) {\n    totalErrors++;\n  }\n  if (data.transcription_count) {\n    totalTranscriptionJobs += data.transcription_count;\n  }\n}\n\nreturn [{\n  json: {\n    all_items: allContentItems,\n    total_count: allContentItems.length,\n    errors: totalErrors,\n    transcription_jobs_queued: totalTranscriptionJobs\n  }\n}];"
+      },
+      "id": "code-aggregate-1",
+      "name": "Aggregate All Episodes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3360, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-items",
+              "leftValue": "={{ $json.total_count > 0 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-has-items-1",
+      "name": "Has Items?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [3580, 400]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.BRIEFLY_API_URL }}/api/content/ingest",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ items: $json.all_items, platform: 'podcast' }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "id": "http-ingest-1",
+      "name": "Ingest Content",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3820, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "briefly-api-auth",
+          "name": "Briefly API Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "no-items-1",
+              "name": "inserted",
+              "value": 0,
+              "type": "number"
+            },
+            {
+              "id": "no-items-2",
+              "name": "duplicates_skipped",
+              "value": 0,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-no-items-1",
+      "name": "No Items to Ingest",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [3820, 500]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll",
+        "options": {}
+      },
+      "id": "merge-final-1",
+      "name": "Merge Final",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [4060, 400]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "sub-progress-report",
+          "mode": "name"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "workflow": "adapter-podcast",
+            "run_id": "={{ $('Initialize').item.json.run_id }}",
+            "status": "completed",
+            "platform": "podcast",
+            "items_extracted": "={{ $('Aggregate All Episodes').item.json.total_count }}",
+            "items_ingested": "={{ $json.inserted || 0 }}",
+            "duplicates_skipped": "={{ $json.duplicates_skipped || 0 }}",
+            "errors": "={{ $('Aggregate All Episodes').item.json.errors }}",
+            "transcription_jobs": "={{ $('Aggregate All Episodes').item.json.transcription_jobs_queued }}",
+            "timestamp": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "exec-progress-1",
+      "name": "Report Progress",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [4280, 400]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "output-1",
+              "name": "platform",
+              "value": "podcast",
+              "type": "string"
+            },
+            {
+              "id": "output-2",
+              "name": "success",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "output-3",
+              "name": "items_extracted",
+              "value": "={{ $('Aggregate All Episodes').item.json.total_count }}",
+              "type": "number"
+            },
+            {
+              "id": "output-4",
+              "name": "items_ingested",
+              "value": "={{ $('Merge Final').item.json.inserted || 0 }}",
+              "type": "number"
+            },
+            {
+              "id": "output-5",
+              "name": "errors",
+              "value": "={{ $('Aggregate All Episodes').item.json.errors }}",
+              "type": "number"
+            },
+            {
+              "id": "output-6",
+              "name": "transcription_jobs_queued",
+              "value": "={{ $('Aggregate All Episodes').item.json.transcription_jobs_queued }}",
+              "type": "number"
+            },
+            {
+              "id": "output-7",
+              "name": "completed_at",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-output-1",
+      "name": "Set Output",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [4500, 400]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "no-sources-1",
+              "name": "platform",
+              "value": "podcast",
+              "type": "string"
+            },
+            {
+              "id": "no-sources-2",
+              "name": "success",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "no-sources-3",
+              "name": "items_extracted",
+              "value": 0,
+              "type": "number"
+            },
+            {
+              "id": "no-sources-4",
+              "name": "items_ingested",
+              "value": 0,
+              "type": "number"
+            },
+            {
+              "id": "no-sources-5",
+              "name": "errors",
+              "value": 0,
+              "type": "number"
+            },
+            {
+              "id": "no-sources-6",
+              "name": "message",
+              "value": "No Podcast sources configured",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "set-no-sources-1",
+      "name": "No Sources",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1300, 600]
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "sub-progress-report",
+          "mode": "name"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "workflow": "adapter-podcast",
+            "run_id": "={{ $('Initialize').item.json.run_id }}",
+            "status": "completed",
+            "platform": "podcast",
+            "items_extracted": 0,
+            "items_ingested": 0,
+            "message": "={{ $json.message }}",
+            "timestamp": "={{ $now.toISO() }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "exec-progress-empty-1",
+      "name": "Report Empty Progress",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.1,
+      "position": [1520, 600]
+    }
+  ],
+  "connections": {
+    "Cron Trigger": {
+      "main": [
+        [
+          {
+            "node": "Merge Triggers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Merge Triggers",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Triggers": {
+      "main": [
+        [
+          {
+            "node": "Initialize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Initialize": {
+      "main": [
+        [
+          {
+            "node": "Fetch Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Sources": {
+      "main": [
+        [
+          {
+            "node": "Has Sources?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Sources?": {
+      "main": [
+        [
+          {
+            "node": "Split Sources",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Sources": {
+      "main": [
+        [
+          {
+            "node": "Batch Sources",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Batch Sources": {
+      "main": [
+        [
+          {
+            "node": "Query Taddy API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query Taddy API": {
+      "main": [
+        [
+          {
+            "node": "Podcast Found?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Podcast Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Podcast Found?": {
+      "main": [
+        [
+          {
+            "node": "Transform Episodes",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Podcast Not Found",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transform Episodes": {
+      "main": [
+        [
+          {
+            "node": "Needs Transcription?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Transcription?": {
+      "main": [
+        [
+          {
+            "node": "Queue Transcription",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skip Transcription",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Queue Transcription": {
+      "main": [
+        [
+          {
+            "node": "Submit Transcription Jobs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Submit Transcription Jobs": {
+      "main": [
+        [
+          {
+            "node": "Merge Episodes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Skip Transcription": {
+      "main": [
+        [
+          {
+            "node": "Merge Episodes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Podcast Not Found": {
+      "main": [
+        [
+          {
+            "node": "Merge Episodes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Episodes": {
+      "main": [
+        [
+          {
+            "node": "Batch Sources",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Aggregate All Episodes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate All Episodes": {
+      "main": [
+        [
+          {
+            "node": "Has Items?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Items?": {
+      "main": [
+        [
+          {
+            "node": "Ingest Content",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Items to Ingest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ingest Content": {
+      "main": [
+        [
+          {
+            "node": "Merge Final",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No Items to Ingest": {
+      "main": [
+        [
+          {
+            "node": "Merge Final",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Final": {
+      "main": [
+        [
+          {
+            "node": "Report Progress",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Report Progress": {
+      "main": [
+        [
+          {
+            "node": "Set Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "No Sources": {
+      "main": [
+        [
+          {
+            "node": "Report Empty Progress",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "staticData": null,
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "briefly-n8n"
+  },
+  "pinData": {},
+  "versionId": "1.0.0",
+  "triggerCount": 1,
+  "tags": [
+    {
+      "id": "adapter",
+      "name": "adapter"
+    },
+    {
+      "id": "podcast",
+      "name": "podcast"
+    },
+    {
+      "id": "briefly",
+      "name": "briefly"
+    }
+  ]
+}
