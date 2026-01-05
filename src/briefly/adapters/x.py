@@ -37,19 +37,24 @@ class XAdapter(BaseAdapter):
         settings = get_settings()
 
         # Client for bot operations (list management) - OAuth 1.0a
+        # wait_on_rate_limit=False to fail fast instead of waiting 15 min
         self._bot_client = tweepy.Client(
             consumer_key=settings.x_api_key,
             consumer_secret=settings.x_api_key_secret,
             access_token=settings.x_access_token,
             access_token_secret=settings.x_access_token_secret,
-            wait_on_rate_limit=True,
+            wait_on_rate_limit=False,
         )
 
         # Async client for read operations - Bearer token
         self._async_client = AsyncClient(
             bearer_token=settings.x_bearer_token,
-            wait_on_rate_limit=True,
+            wait_on_rate_limit=False,
         )
+
+        # Track rate limit status
+        self._rate_limited = False
+        self._rate_limit_reset: datetime | None = None
 
         # Check if we have write permissions
         self._has_write_permissions: bool | None = None
@@ -161,6 +166,10 @@ class XAdapter(BaseAdapter):
         """Fetch tweets from a single user's timeline."""
         items = []
 
+        # Skip if already rate limited
+        if self._rate_limited:
+            return items
+
         try:
             response = await self._async_client.get_users_tweets(
                 id=user_id,
@@ -191,6 +200,9 @@ class XAdapter(BaseAdapter):
                             posted_at=tweet.created_at,
                         )
                     )
+        except tweepy.errors.TooManyRequests as e:
+            self._rate_limited = True
+            logger.warning(f"X API rate limit hit - skipping remaining users. Error: {e}")
         except tweepy.errors.TweepyException as e:
             logger.warning(f"Failed to fetch timeline for {username}: {e}")
 
@@ -205,10 +217,17 @@ class XAdapter(BaseAdapter):
         """Fetch content by polling individual user timelines."""
         all_items = []
         users = list(user_lookup.values())[:self.MAX_USERS_DIRECT]
+        fetched_count = 0
 
         logger.info(f"Fetching timelines for {len(users)} users (direct method)...")
 
         for i, user in enumerate(users):
+            # Check if rate limited before each fetch
+            if self._rate_limited:
+                skipped = len(users) - i
+                logger.warning(f"Rate limited - skipping {skipped} remaining users")
+                break
+
             items = await self._fetch_user_timeline(
                 user_id=str(user["id"]),
                 username=user["username"],
@@ -217,11 +236,17 @@ class XAdapter(BaseAdapter):
                 end_time=end_time,
             )
             all_items.extend(items)
+            fetched_count += 1
             logger.info(f"  [{i+1}/{len(users)}] @{user['username']}: {len(items)} tweets")
 
-            # Small delay between requests
-            if i < len(users) - 1:
+            # Small delay between requests to be respectful
+            if i < len(users) - 1 and not self._rate_limited:
                 await asyncio.sleep(0.5)
+
+        if self._rate_limited:
+            logger.warning(f"X fetch completed with rate limit: got {len(all_items)} tweets from {fetched_count}/{len(users)} users")
+        else:
+            logger.info(f"X fetch completed: {len(all_items)} tweets from {fetched_count} users")
 
         return all_items
 
@@ -351,9 +376,14 @@ class XAdapter(BaseAdapter):
         Fetch tweets from specified X accounts.
 
         Automatically chooses the best strategy based on permissions.
+        Rate limits are handled gracefully - returns partial results if hit.
         """
         if not identifiers:
             return []
+
+        # Reset rate limit state for fresh request
+        self._rate_limited = False
+        self._rate_limit_reset = None
 
         # Step 1: Look up user IDs
         logger.info(f"Looking up {len(identifiers)} X users...")
