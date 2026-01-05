@@ -11,7 +11,6 @@ Endpoints:
 
 from __future__ import annotations
 
-import os
 from datetime import datetime
 from typing import Any, Optional
 
@@ -19,14 +18,11 @@ import httpx
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel, Field
 
+from briefly.core.config import get_settings
 from briefly.services.jobs import JobService, Job, JobStatus, get_job_service
 
 
 router = APIRouter()
-
-# n8n configuration
-N8N_BASE_URL = os.getenv("N8N_BASE_URL", "http://localhost:5678")
-N8N_WEBHOOK_PATH = os.getenv("N8N_WEBHOOK_PATH", "/webhook/briefing")
 
 
 # Request/Response Models
@@ -129,8 +125,9 @@ async def create_job(
         # Trigger n8n webhook
         async def trigger_n8n():
             try:
+                settings = get_settings()
                 async with httpx.AsyncClient(timeout=30.0) as client:
-                    webhook_url = f"{N8N_BASE_URL}{N8N_WEBHOOK_PATH}"
+                    webhook_url = f"{settings.n8n_base_url}{settings.n8n_webhook_path}"
                     response = await client.post(
                         webhook_url,
                         json={

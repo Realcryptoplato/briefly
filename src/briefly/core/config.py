@@ -38,6 +38,11 @@ class Settings(BaseSettings):
     # Redis
     redis_url: str = "redis://localhost:6382/0"
 
+    # n8n Integration
+    n8n_base_url: str = "http://localhost:5678"
+    n8n_webhook_path: str = "/webhook/briefing"
+    n8n_api_key: str | None = None  # Optional API key for n8n
+
     # YouTube (optional)
     youtube_api_key: str | None = None
 
