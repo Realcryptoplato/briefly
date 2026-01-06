@@ -256,6 +256,53 @@ class ImportYouTubeRequest(BaseModel):
     channel: str  # YouTube channel handle or ID
 
 
+class AddPodcastRequest(BaseModel):
+    name: str
+    feed_url: str
+
+
+@router.post("/podcasts")
+async def add_podcast(req: AddPodcastRequest) -> dict:
+    """Add a podcast source."""
+    sources = _load_sources()
+
+    if "podcasts" not in sources:
+        sources["podcasts"] = []
+
+    # Check if already exists
+    for p in sources["podcasts"]:
+        if p.get("name") == req.name:
+            raise HTTPException(400, f"Podcast '{req.name}' already exists")
+
+    from datetime import datetime as dt
+    sources["podcasts"].append({
+        "name": req.name,
+        "feed_url": req.feed_url,
+        "added_at": dt.now().isoformat(),
+    })
+    _save_sources(sources)
+
+    return {"status": "added", "podcast": {"name": req.name, "feed_url": req.feed_url}}
+
+
+@router.delete("/podcasts/{name}")
+async def remove_podcast(name: str) -> dict:
+    """Remove a podcast source."""
+    sources = _load_sources()
+
+    if "podcasts" not in sources:
+        raise HTTPException(404, f"Podcast '{name}' not found")
+
+    original_count = len(sources["podcasts"])
+    sources["podcasts"] = [p for p in sources["podcasts"] if p.get("name") != name]
+
+    if len(sources["podcasts"]) == original_count:
+        raise HTTPException(404, f"Podcast '{name}' not found")
+
+    _save_sources(sources)
+    return {"status": "removed", "name": name}
+
+
 @router.post("/youtube/import")
 async def import_youtube_subscriptions(req: ImportYouTubeRequest) -> dict:
     """
@@ -314,6 +361,50 @@ async def import_youtube_subscriptions(req: ImportYouTubeRequest) -> dict:
 # X Lists Management Endpoints
 
 
+class XListInitRequest(BaseModel):
+    list_name: str = "briefly_sources"  # Custom list name
+
+
+@router.post("/x/init-list")
+async def init_x_list(req: XListInitRequest | None = None) -> dict:
+    """
+    Initialize the X list for efficient timeline fetching.
+
+    Creates the list if it doesn't exist, or verifies it exists.
+    After init, syncing sources will add them to this list.
+    """
+    list_name = req.list_name if req else "briefly_sources"
+
+    # Import here to avoid circular imports and allow custom list name
+    from briefly.services.x_lists import XListManager
+    list_manager = XListManager(list_name=list_name)
+
+    try:
+        list_id = await list_manager.ensure_list_exists()
+
+        # Update sources.json with list info
+        sources = _load_sources()
+        sources["x_list_id"] = list_id
+        sources["x_list_name"] = list_name
+        _save_sources(sources)
+
+        return {
+            "status": "initialized",
+            "list_id": list_id,
+            "list_name": list_name,
+            "message": f"X List '{list_name}' is ready. Now sync your sources with POST /api/sources/x/sync",
+        }
+    except Exception as e:
+        error_msg = str(e)
+        if "403 Forbidden" in error_msg or "oauth1 app permissions" in error_msg:
+            raise HTTPException(
+                403,
+                "X API write permissions not enabled. Go to X Developer Portal > Your App > "
+                "Settings > User authentication settings and enable 'Read and write' permissions."
+            )
+        raise HTTPException(500, f"Failed to initialize X list: {error_msg}")
+
+
 @router.get("/x/list-status")
 async def get_x_list_status() -> dict:
     """
@@ -321,8 +412,23 @@ async def get_x_list_status() -> dict:
 
     Returns list ID, member count, sync status, and rate limit info.
     """
+    sources = _load_sources()
     list_manager = get_list_manager()
-    return list_manager.get_status()
+    status = list_manager.get_status()
+
+    # Add sources info
+    status["configured_sources"] = len(_get_x_identifiers(sources))
+    status["sources_list_name"] = sources.get("x_list_name")
+
+    # Add help text if no list
+    if not status.get("list_id"):
+        status["setup_required"] = True
+        status["setup_message"] = (
+            "X List not initialized. Click 'Initialize List' to create it. "
+            "Requires X API write permissions in Developer Portal."
+        )
+
+    return status
 
 
 class XListSyncRequest(BaseModel):
@@ -409,3 +515,45 @@ async def get_x_list_members() -> dict:
         "member_count": len(members),
         "members": members,
     }
+
+
+@router.get("/x/list-timeline-test")
+async def test_x_list_timeline() -> dict:
+    """
+    Test fetching the X list timeline.
+
+    This tests if the Free tier allows reading list timelines.
+    """
+    from datetime import datetime, timedelta
+
+    list_manager = get_list_manager()
+    list_id = await list_manager.get_list_id()
+
+    if not list_id:
+        return {"status": "no_list", "error": "List not initialized"}
+
+    try:
+        items = await list_manager.get_list_timeline(
+            start_time=datetime.now() - timedelta(hours=24),
+            end_time=datetime.now(),
+            max_results=10,
+        )
+        return {
+            "status": "ok",
+            "list_id": list_id,
+            "items_count": len(items),
+            "items": [
+                {
+                    "id": item.platform_id,
+                    "author": item.source_identifier,
+                    "content": item.content[:100] if item.content else None,
+                }
+                for item in items
+            ],
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "list_id": list_id,
+            "error": str(e),
+        }

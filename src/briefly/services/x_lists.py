@@ -81,10 +81,10 @@ class XListManager:
     fetches a single list timeline (1 API call) containing all sources.
     """
 
-    LIST_NAME = "briefly_sources"
-    LIST_DESCRIPTION = "Briefly 3000 curated sources"
+    # Default list name - can be overridden per user
+    DEFAULT_LIST_NAME = "briefly_sources"
 
-    def __init__(self) -> None:
+    def __init__(self, list_name: str | None = None) -> None:
         settings = get_settings()
 
         # OAuth 1.0a client for list management (write operations)
@@ -109,10 +109,29 @@ class XListManager:
         # Load persisted state
         self._state = _load_list_state()
         self._list_id: str | None = self._state.get("list_id")
+        self._list_name: str = list_name or self._state.get("list_name") or self.DEFAULT_LIST_NAME
+
+    @property
+    def list_name(self) -> str:
+        """Get the configured list name."""
+        return self._list_name
+
+    def get_status(self) -> dict:
+        """Get current list manager status."""
+        return {
+            "list_id": self._list_id,
+            "list_name": self._list_name,
+            "list_verified": self._state.get("list_verified", False),
+            "last_sync": self._state.get("last_sync"),
+            "member_count": self._state.get("member_count", 0),
+            "add_rate_available": self._add_rate_tracker.available_operations(),
+            "remove_rate_available": self._remove_rate_tracker.available_operations(),
+        }
 
     def _save_state(self) -> None:
         """Persist current state."""
         self._state["list_id"] = self._list_id
+        self._state["list_name"] = self._list_name
         self._state["last_updated"] = datetime.now().isoformat()
         _save_list_state(self._state)
 
@@ -143,19 +162,32 @@ class XListManager:
         if await self.get_list_id():
             return self._list_id
 
+        loop = asyncio.get_event_loop()
+
+        # Get authenticated user ID first
+        try:
+            me_response = await loop.run_in_executor(
+                None,
+                lambda: self._bot_client.get_me()
+            )
+            my_user_id = me_response.data.id
+        except tweepy.errors.TweepyException as e:
+            logger.error(f"Failed to get authenticated user: {e}")
+            raise
+
         # Look for existing list by name
         try:
-            loop = asyncio.get_event_loop()
             response = await loop.run_in_executor(
                 None,
-                lambda: self._bot_client.get_owned_lists(max_results=100)
+                lambda: self._bot_client.get_owned_lists(id=my_user_id, max_results=100)
             )
 
             if response.data:
                 for lst in response.data:
-                    if lst.name == self.LIST_NAME:
+                    if lst.name == self._list_name:
                         self._list_id = str(lst.id)
-                        logger.info(f"Found existing list: {self._list_id}")
+                        self._state["list_verified"] = True
+                        logger.info(f"Found existing list '{self._list_name}': {self._list_id}")
                         self._save_state()
                         return self._list_id
         except tweepy.errors.TweepyException as e:
@@ -163,16 +195,19 @@ class XListManager:
 
         # Create new private list
         try:
+            list_desc = f"Briefly 3000 curated sources - {self._list_name}"
             response = await loop.run_in_executor(
                 None,
                 lambda: self._bot_client.create_list(
-                    name=self.LIST_NAME,
-                    description=self.LIST_DESCRIPTION,
+                    name=self._list_name,
+                    description=list_desc,
                     private=True,
                 )
             )
             self._list_id = str(response.data["id"])
-            logger.info(f"Created new list: {self._list_id}")
+            self._state["list_verified"] = True
+            self._state["created_at"] = datetime.now().isoformat()
+            logger.info(f"Created new list '{self._list_name}': {self._list_id}")
             self._save_state()
             return self._list_id
         except tweepy.errors.TweepyException as e:
@@ -233,8 +268,8 @@ class XListManager:
             self._add_rate_tracker.record_operation()
             logger.debug(f"Added user {user_id} to list")
             return True
-        except tweepy.errors.TooManyRequests:
-            logger.warning("Rate limit hit while adding member")
+        except tweepy.errors.TooManyRequests as e:
+            logger.warning(f"Rate limit hit while adding member {user_id}: {e}")
             return False
         except tweepy.errors.TweepyException as e:
             logger.warning(f"Failed to add user {user_id}: {e}")
@@ -364,12 +399,15 @@ class XListManager:
 
     async def get_list_timeline(
         self,
-        start_time: datetime,
-        end_time: datetime,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
         max_results: int = 100,
     ) -> list[ContentItem]:
         """
-        Fetch all tweets from list members in time range.
+        Fetch all tweets from list members.
+
+        Note: The list timeline endpoint doesn't support time filtering,
+        so we fetch recent tweets and filter client-side if needed.
 
         This is the key efficiency gain: 1 API call for ALL sources.
         """
@@ -379,14 +417,13 @@ class XListManager:
         items = []
 
         try:
+            # Use OAuth 1.0a (bot client) - owner can access their own list
             loop = asyncio.get_event_loop()
             response = await loop.run_in_executor(
                 None,
                 lambda: self._bot_client.get_list_tweets(
                     id=self._list_id,
                     max_results=max_results,
-                    start_time=start_time.isoformat(),
-                    end_time=end_time.isoformat(),
                     tweet_fields=["created_at", "public_metrics", "author_id"],
                     expansions=["author_id"],
                     user_fields=["username", "name"],
@@ -439,17 +476,6 @@ class XListManager:
 
         return items
 
-    def get_status(self) -> dict[str, Any]:
-        """Get current list status for API."""
-        return {
-            "list_id": self._list_id,
-            "list_name": self.LIST_NAME,
-            "member_count": self._state.get("member_count", 0),
-            "last_sync": self._state.get("last_sync"),
-            "pending_adds": self._state.get("pending_adds", []),
-            "available_add_operations": self._add_rate_tracker.available_operations(),
-            "available_remove_operations": self._remove_rate_tracker.available_operations(),
-        }
 
 
 # Singleton instance

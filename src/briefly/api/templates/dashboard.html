@@ -13,82 +13,15 @@
         <div class="mb-8 flex items-start justify-between">
             <div>
                 <h1 class="text-4xl font-bold text-cyan-400">Briefly 3000</h1>
-                <p class="text-gray-400 mt-2">The year 3000 called — they want their executive assistant back.</p>
+                <p class="text-gray-400 mt-2">LLM-native media curation • Powered by Grok + Gemini</p>
             </div>
-            <button @click="showSettings = true" class="p-2 hover:bg-gray-800 rounded-lg transition-colors" title="Settings">
-                <svg class="w-6 h-6 text-gray-400 hover:text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                </svg>
-            </button>
-        </div>
-
-        <!-- Settings Modal -->
-        <div x-show="showSettings" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/50" @click.self="showSettings = false">
-            <div class="bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4 shadow-xl">
-                <div class="flex items-center justify-between mb-6">
-                    <h2 class="text-xl font-semibold">Settings</h2>
-                    <button @click="showSettings = false" class="text-gray-400 hover:text-white">&times;</button>
-                </div>
-
-                <!-- Database Status -->
-                <div class="mb-6">
-                    <h3 class="text-sm font-medium text-gray-400 mb-3">Database Connection</h3>
-                    <div class="bg-gray-700 rounded-lg p-4">
-                        <div class="flex items-center justify-between mb-3">
-                            <span class="text-sm">Current Database:</span>
-                            <span class="flex items-center gap-2">
-                                <span class="w-2 h-2 rounded-full" :class="settingsData.database_type === 'postgresql' ? 'bg-green-400' : 'bg-yellow-400'"></span>
-                                <span class="font-medium" x-text="settingsData.database_type === 'postgresql' ? 'PostgreSQL' : 'SQLite'"></span>
-                            </span>
-                        </div>
-                        <div class="flex items-center justify-between mb-3">
-                            <span class="text-sm">Mode:</span>
-                            <span class="font-medium" :class="settingsData.database_mode === 'vps' ? 'text-green-400' : 'text-yellow-400'" x-text="settingsData.database_mode === 'vps' ? 'VPS (Production)' : 'Local (Development)'"></span>
-                        </div>
-                        <div class="text-xs text-gray-400 font-mono truncate" x-text="settingsData.database_url_masked"></div>
-                    </div>
-                </div>
-
-                <!-- Database Mode Toggle -->
-                <div class="mb-6">
-                    <h3 class="text-sm font-medium text-gray-400 mb-3">Switch Database</h3>
-                    <div class="flex gap-2">
-                        <button
-                            @click="switchDatabase('local')"
-                            :class="settingsData.database_mode === 'local' ? 'bg-yellow-600' : 'bg-gray-600 hover:bg-gray-500'"
-                            class="flex-1 py-2 px-4 rounded font-medium text-sm transition-colors"
-                        >
-                            Local (SQLite)
-                        </button>
-                        <button
-                            @click="switchDatabase('vps')"
-                            :class="settingsData.database_mode === 'vps' ? 'bg-green-600' : 'bg-gray-600 hover:bg-gray-500'"
-                            class="flex-1 py-2 px-4 rounded font-medium text-sm transition-colors"
-                        >
-                            VPS (PostgreSQL)
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Restart Instructions -->
-                <div x-show="settingsData.restart_required" class="mb-6 p-3 bg-yellow-900/30 rounded-lg">
-                    <p class="text-yellow-300 text-sm mb-2">Restart required to apply changes:</p>
-                    <code class="text-xs text-gray-300 bg-gray-900 p-2 rounded block" x-text="envCommand"></code>
-                    <p class="text-xs text-gray-400 mt-2">Then restart the server</p>
-                </div>
-
-                <!-- Environment Info -->
-                <div class="text-xs text-gray-500 border-t border-gray-700 pt-4">
-                    <div class="flex justify-between">
-                        <span>Environment:</span>
-                        <span x-text="settingsData.environment"></span>
-                    </div>
-                    <div class="flex justify-between mt-1">
-                        <span>Production Mode:</span>
-                        <span x-text="settingsData.is_production ? 'Yes' : 'No'"></span>
-                    </div>
-                </div>
+            <div class="flex items-center gap-2">
+                <span class="text-xs px-2 py-1 rounded-full" :class="apiStatus.grok ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'">
+                    Grok <span x-text="apiStatus.grok ? '✓' : '✗'"></span>
+                </span>
+                <span class="text-xs px-2 py-1 rounded-full" :class="apiStatus.gemini ? 'bg-green-900 text-green-300' : 'bg-red-900 text-red-300'">
+                    Gemini <span x-text="apiStatus.gemini ? '✓' : '✗'"></span>
+                </span>
             </div>
         </div>
 
@@ -98,11 +31,12 @@
                 <!-- X Sources -->
                 <div class="bg-gray-800 rounded-lg p-6">
                     <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
-                        <span class="text-2xl">𝕏</span> X Sources
+                        <span class="text-2xl">𝕏</span> X Accounts
                         <span class="text-sm text-gray-500 font-normal">(<span x-text="sources.x?.length || 0"></span>)</span>
+                        <span class="ml-auto text-xs text-cyan-400">via Grok</span>
                     </h2>
 
-                    <form @submit.prevent="addSource('x')" class="mb-4">
+                    <form @submit.prevent="addXSource" class="mb-4">
                         <div class="flex gap-2">
                             <input
                                 type="text"
@@ -118,17 +52,20 @@
                     </form>
 
                     <div class="space-y-2 max-h-48 overflow-y-auto">
-                        <template x-for="source in sources.x" :key="source.identifier">
+                        <template x-for="source in sources.x" :key="source">
                             <div class="flex items-center justify-between bg-gray-700 rounded px-3 py-2 text-sm">
-                                <div>
-                                    <span class="font-medium">@<span x-text="source.identifier"></span></span>
-                                    <span x-show="source.cached" class="text-green-400 text-xs ml-1">✓</span>
-                                </div>
-                                <button @click="removeSource('x', source.identifier)" class="text-red-400 hover:text-red-300">✕</button>
+                                <span class="font-medium">@<span x-text="source"></span></span>
+                                <button @click="removeSource('x', source)" class="text-red-400 hover:text-red-300">✕</button>
                             </div>
                         </template>
-                        <p x-show="!sources.x?.length" class="text-gray-500 text-sm">No X sources yet</p>
+                        <p x-show="!sources.x?.length" class="text-gray-500 text-sm">No X accounts yet</p>
                     </div>
+
+                    <!-- Quick Test -->
+                    <button @click="testXSummary" :disabled="testingX" class="mt-4 w-full bg-gray-700 hover:bg-gray-600 px-3 py-2 rounded text-sm">
+                        <span x-show="testingX">Testing...</span>
+                        <span x-show="!testingX">🧪 Test X Summary</span>
+                    </button>
                 </div>
 
                 <!-- YouTube Sources -->
@@ -136,36 +73,18 @@
                     <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
                         <span class="text-2xl text-red-500">▶</span> YouTube
                         <span class="text-sm text-gray-500 font-normal">(<span x-text="sources.youtube?.length || 0"></span>)</span>
+                        <span class="ml-auto text-xs text-cyan-400">via Gemini</span>
                     </h2>
 
-                    <!-- Import Subscriptions -->
-                    <div class="mb-4 p-3 bg-gray-700/50 rounded">
-                        <p class="text-sm text-gray-400 mb-2">Import from your YouTube channel:</p>
-                        <form @submit.prevent="importYouTube" class="flex gap-2">
-                            <input
-                                type="text"
-                                x-model="youtubeChannel"
-                                placeholder="@yourchannel"
-                                class="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-red-500"
-                            >
-                            <button type="submit" :disabled="importingYT" class="bg-red-600 hover:bg-red-500 px-3 py-2 rounded text-sm font-medium disabled:opacity-50">
-                                <span x-show="importingYT" class="animate-spin">⟳</span>
-                                <span x-show="!importingYT">Import</span>
-                            </button>
-                        </form>
-                        <p x-show="ytImportResult" x-text="ytImportResult" class="text-sm mt-2" :class="ytImportError ? 'text-red-400' : 'text-green-400'"></p>
-                    </div>
-
-                    <!-- Manual Add -->
-                    <form @submit.prevent="addSource('youtube')" class="mb-4">
+                    <form @submit.prevent="addYTSource" class="mb-4">
                         <div class="flex gap-2">
                             <input
                                 type="text"
                                 x-model="newYTSource"
-                                placeholder="@channel or channel ID"
+                                placeholder="@channel or video URL"
                                 class="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-red-500"
                             >
-                            <button type="submit" :disabled="loading" class="bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded text-sm font-medium disabled:opacity-50">
+                            <button type="submit" :disabled="loading" class="bg-red-600 hover:bg-red-500 px-4 py-2 rounded text-sm font-medium disabled:opacity-50">
                                 Add
                             </button>
                         </div>
@@ -173,98 +92,97 @@
                     </form>
 
                     <div class="space-y-2 max-h-48 overflow-y-auto">
-                        <template x-for="source in sources.youtube" :key="source.identifier">
+                        <template x-for="source in sources.youtube" :key="source.identifier || source">
                             <div class="flex items-center justify-between bg-gray-700 rounded px-3 py-2 text-sm">
                                 <div class="truncate flex-1 mr-2">
-                                    <span class="font-medium" x-text="source.name || source.identifier"></span>
-                                    <span x-show="source.cached" class="text-green-400 text-xs ml-1">✓</span>
+                                    <span class="font-medium" x-text="source.name || source.identifier || source"></span>
                                 </div>
-                                <button @click="removeSource('youtube', source.identifier)" class="text-red-400 hover:text-red-300 flex-shrink-0">✕</button>
+                                <button @click="removeSource('youtube', source.identifier || source)" class="text-red-400 hover:text-red-300 flex-shrink-0">✕</button>
                             </div>
                         </template>
-                        <p x-show="!sources.youtube?.length" class="text-gray-500 text-sm">No YouTube sources yet</p>
+                        <p x-show="!sources.youtube?.length" class="text-gray-500 text-sm">No YouTube channels yet</p>
                     </div>
                 </div>
 
-                <!-- Semantic Search -->
+                <!-- Podcast Sources -->
                 <div class="bg-gray-800 rounded-lg p-6">
                     <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
-                        <span class="text-2xl">&#128269;</span> Semantic Search
+                        <span class="text-2xl">🎙️</span> Podcasts
+                        <span class="text-sm text-gray-500 font-normal">(<span x-text="sources.podcasts?.length || 0"></span>)</span>
+                        <span class="ml-auto text-xs text-cyan-400">via Gemini</span>
                     </h2>
 
-                    <form @submit.prevent="searchContent" class="mb-4">
-                        <input
-                            type="text"
-                            x-model="searchQuery"
-                            placeholder="What did anyone say about..."
-                            class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm mb-2 focus:outline-none focus:border-cyan-500"
-                        >
-                        <button type="submit" :disabled="searching" class="w-full bg-cyan-600 hover:bg-cyan-500 px-4 py-2 rounded text-sm font-medium disabled:opacity-50">
-                            <span x-show="searching">Searching...</span>
-                            <span x-show="!searching">Search</span>
-                        </button>
+                    <form @submit.prevent="addPodcast" class="mb-4">
+                        <div class="space-y-2">
+                            <input
+                                type="text"
+                                x-model="newPodcastName"
+                                placeholder="Podcast name"
+                                class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-purple-500"
+                            >
+                            <input
+                                type="text"
+                                x-model="newPodcastUrl"
+                                placeholder="RSS feed URL or audio URL"
+                                class="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:border-purple-500"
+                            >
+                            <button type="submit" :disabled="loading" class="w-full bg-purple-600 hover:bg-purple-500 px-4 py-2 rounded text-sm font-medium disabled:opacity-50">
+                                Add Podcast
+                            </button>
+                        </div>
+                        <p x-show="podcastError" x-text="podcastError" class="text-red-400 text-sm mt-2"></p>
                     </form>
 
-                    <p x-show="searchError" x-text="searchError" class="text-red-400 text-sm mb-2"></p>
-
-                    <div x-show="searchResults.length > 0" class="space-y-2 max-h-64 overflow-y-auto">
-                        <template x-for="result in searchResults" :key="result.id + '-' + result.chunk_content.substring(0, 20)">
-                            <div class="bg-gray-700 rounded p-2 text-sm">
-                                <div class="flex items-center gap-1 text-xs text-gray-400">
-                                    <span x-show="result.platform === 'x'">&#120143;</span>
-                                    <span x-show="result.platform === 'youtube'" class="text-red-500">&#9654;</span>
-                                    <span x-text="result.platform"></span>
-                                    <span>&bull;</span>
-                                    <span x-text="result.source_name || result.source_id"></span>
+                    <div class="space-y-2 max-h-48 overflow-y-auto">
+                        <template x-for="podcast in sources.podcasts" :key="podcast.name">
+                            <div class="flex items-center justify-between bg-gray-700 rounded px-3 py-2 text-sm">
+                                <div class="truncate flex-1 mr-2">
+                                    <span class="font-medium" x-text="podcast.name"></span>
+                                    <span class="text-xs text-gray-500 block truncate" x-text="podcast.feed_url || podcast.audio_url"></span>
                                 </div>
-                                <p class="mt-1 line-clamp-2" x-text="result.chunk_content"></p>
-                                <div class="flex items-center justify-between mt-1">
-                                    <span class="text-xs text-cyan-400">
-                                        <span x-text="(result.similarity * 100).toFixed(1)"></span>% match
-                                    </span>
-                                    <a x-show="result.url" :href="result.url" target="_blank" class="text-cyan-400 text-xs hover:underline">
-                                        View &rarr;
-                                    </a>
-                                </div>
+                                <button @click="removePodcast(podcast.name)" class="text-red-400 hover:text-red-300 flex-shrink-0">✕</button>
                             </div>
                         </template>
+                        <p x-show="!sources.podcasts?.length" class="text-gray-500 text-sm">No podcasts yet</p>
                     </div>
 
-                    <p x-show="searchResults.length === 0 && !searching && searchQuery && !searchError" class="text-gray-500 text-sm">
-                        No results found
-                    </p>
+                    <!-- Test Audio URL -->
+                    <div class="mt-4 pt-4 border-t border-gray-700">
+                        <p class="text-xs text-gray-400 mb-2">Quick test: paste any podcast audio URL</p>
+                        <div class="flex gap-2">
+                            <input
+                                type="text"
+                                x-model="testAudioUrl"
+                                placeholder="https://...mp3"
+                                class="flex-1 bg-gray-700 border border-gray-600 rounded px-2 py-1 text-xs"
+                            >
+                            <button @click="testPodcastSummary" :disabled="testingPodcast" class="bg-purple-600 hover:bg-purple-500 px-3 py-1 rounded text-xs">
+                                Test
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Cache Stats -->
+                <!-- Cost Estimate -->
                 <div class="bg-gray-800 rounded-lg p-4">
-                    <h3 class="text-sm font-medium text-gray-400 mb-2">Cache</h3>
-                    <p class="text-sm"><span x-text="cacheStats.cached_users || 0"></span> items cached</p>
-                </div>
-
-                <!-- Vector Store Stats -->
-                <div class="bg-gray-800 rounded-lg p-4">
-                    <h3 class="text-sm font-medium text-gray-400 mb-2">Vector Store</h3>
+                    <h3 class="text-sm font-medium text-gray-400 mb-2">Estimated Cost per Briefing</h3>
                     <div class="text-sm space-y-1">
-                        <p><span x-text="vectorStats.total_content_items || 0"></span> content items</p>
-                        <p><span x-text="vectorStats.total_chunks || 0"></span> chunks indexed</p>
-                    </div>
-                </div>
-
-                <!-- Transcript Processing -->
-                <div class="bg-gray-800 rounded-lg p-4">
-                    <h3 class="text-sm font-medium text-gray-400 mb-2">Transcripts</h3>
-                    <div class="text-sm space-y-2">
-                        <p><span x-text="transcriptStats.pending_summarization || 0"></span> pending summarization</p>
-                        <button
-                            @click="processTranscripts"
-                            :disabled="processingTranscripts"
-                            x-show="transcriptStats.pending_summarization > 0"
-                            class="w-full bg-purple-600 hover:bg-purple-500 px-3 py-2 rounded text-xs font-medium disabled:opacity-50"
-                        >
-                            <span x-show="processingTranscripts" class="animate-spin inline-block mr-1">&#8635;</span>
-                            <span x-text="processingTranscripts ? 'Processing...' : 'Summarize Transcripts'"></span>
-                        </button>
-                        <p x-show="transcriptResult" x-text="transcriptResult" class="text-green-400 text-xs"></p>
+                        <div class="flex justify-between">
+                            <span>X (<span x-text="sources.x?.length || 0"></span> accounts)</span>
+                            <span class="text-cyan-400">~$0.003</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>YouTube (<span x-text="sources.youtube?.length || 0"></span> channels)</span>
+                            <span class="text-cyan-400">~$<span x-text="((sources.youtube?.length || 0) * 0.05).toFixed(2)"></span></span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Podcasts (<span x-text="sources.podcasts?.length || 0"></span>)</span>
+                            <span class="text-cyan-400">~$<span x-text="((sources.podcasts?.length || 0) * 0.05).toFixed(2)"></span></span>
+                        </div>
+                        <div class="flex justify-between pt-2 border-t border-gray-700 font-medium">
+                            <span>Total</span>
+                            <span class="text-green-400">~$<span x-text="(0.003 + (sources.youtube?.length || 0) * 0.05 + (sources.podcasts?.length || 0) * 0.05).toFixed(2)"></span></span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -272,254 +190,327 @@
             <!-- Briefing Panel -->
             <div class="lg:col-span-2">
                 <div class="bg-gray-800 rounded-lg p-6">
-                    <div class="flex items-center justify-between mb-4">
-                        <div class="flex items-center gap-4">
-                            <h2 class="text-xl font-semibold flex items-center gap-2">
-                                <span class="text-2xl">📋</span> Briefing
-                            </h2>
-                            <!-- Briefing Selector -->
-                            <div x-show="briefings.length > 0" class="flex items-center gap-2">
-                                <select
-                                    x-model="selectedBriefingId"
-                                    class="bg-gray-700 border border-gray-600 rounded px-3 py-1 text-sm focus:outline-none focus:border-cyan-500"
-                                >
-                                    <template x-for="b in briefings" :key="b.id || b.job_id">
-                                        <option :value="b.id || b.job_id" x-text="new Date(b.generated_at).toLocaleString()"></option>
-                                    </template>
-                                </select>
-                                <span class="text-xs text-gray-500" x-text="'(' + briefings.length + ' total)'"></span>
-                            </div>
+                    <!-- Header with Generate Options -->
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-xl font-semibold flex items-center gap-2">
+                            <span class="text-2xl">📋</span> Briefing
+                        </h2>
+                        <div class="flex items-center gap-2">
+                            <!-- Time Range -->
+                            <select x-model="hoursBack" class="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm">
+                                <option value="12">Last 12h</option>
+                                <option value="24">Last 24h</option>
+                                <option value="48">Last 48h</option>
+                                <option value="72">Last 72h</option>
+                            </select>
+
+                            <!-- Focus (optional) -->
+                            <input
+                                type="text"
+                                x-model="briefingFocus"
+                                placeholder="Focus (optional)"
+                                class="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-sm w-32"
+                            >
+
+                            <!-- Generate Buttons -->
+                            <button
+                                @click="generateQuickBriefing"
+                                :disabled="generating"
+                                class="bg-gray-600 hover:bg-gray-500 px-4 py-2 rounded text-sm font-medium disabled:opacity-50"
+                                title="X accounts only - fastest"
+                            >
+                                ⚡ Quick
+                            </button>
+                            <button
+                                @click="generateFullBriefing"
+                                :disabled="generating"
+                                class="bg-cyan-600 hover:bg-cyan-500 px-4 py-2 rounded text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+                            >
+                                <span x-show="generating" class="animate-spin">⟳</span>
+                                <span x-text="generating ? 'Generating...' : '🚀 Full Briefing'"></span>
+                            </button>
                         </div>
-                        <button
-                            @click="generateBriefing"
-                            :disabled="generating"
-                            class="bg-cyan-600 hover:bg-cyan-500 px-4 py-2 rounded text-sm font-medium disabled:opacity-50 flex items-center gap-2"
-                        >
-                            <span x-show="generating" class="animate-spin">⟳</span>
-                            <span x-text="generating ? 'Generating...' : 'Generate New'"></span>
-                        </button>
                     </div>
 
-                    <!-- Reconnected Banner -->
-                    <div x-show="reconnected && generating" class="mb-4 p-3 rounded bg-blue-900/30 text-blue-300">
-                        <div class="flex items-center gap-2">
-                            <span>🔗</span>
-                            <span>Reconnected to running job</span>
+                    <!-- Source Selection -->
+                    <div class="mb-6 p-4 bg-gray-700/50 rounded-lg">
+                        <p class="text-sm text-gray-400 mb-3">Include in briefing:</p>
+                        <div class="flex flex-wrap gap-4">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" x-model="includeX" class="rounded bg-gray-600 border-gray-500">
+                                <span class="text-sm">𝕏 X Accounts (<span x-text="sources.x?.length || 0"></span>)</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" x-model="includeYouTube" class="rounded bg-gray-600 border-gray-500">
+                                <span class="text-sm">▶ YouTube (<span x-text="sources.youtube?.length || 0"></span>)</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" x-model="includePodcasts" class="rounded bg-gray-600 border-gray-500">
+                                <span class="text-sm">🎙️ Podcasts (<span x-text="sources.podcasts?.length || 0"></span>)</span>
+                            </label>
                         </div>
                     </div>
 
-                    <!-- Status -->
-                    <div x-show="jobStatus" class="mb-4 p-3 rounded"
-                         :class="jobStatus === 'completed' ? 'bg-green-900/30 text-green-300' : jobStatus === 'failed' ? 'bg-red-900/30 text-red-300' : 'bg-yellow-900/30 text-yellow-300'">
-                        <div class="flex items-center gap-2">
-                            <span x-show="jobStatus === 'running' || jobStatus === 'pending'" class="animate-spin">⟳</span>
-                            <span x-text="(jobStatus === 'running' || jobStatus === 'pending') ? jobStep : 'Status: ' + jobStatus"></span>
-                        </div>
-                        <!-- Media status from job.progress.media_status -->
-                        <template x-if="mediaStatus">
-                            <div class="mt-2 text-sm space-y-1">
-                                <template x-for="(status, platform) in mediaStatus" :key="platform">
-                                    <div class="flex items-center gap-2">
-                                        <span x-text="platform === 'x' ? '𝕏' : platform === 'youtube' ? '▶' : platform === 'podcasts' ? '🎙️' : '📦'"></span>
-                                        <span x-text="platform"></span>
-                                        <span class="text-gray-400">—</span>
-                                        <span x-text="status.status"></span>
-                                        <span x-show="status.count" class="text-cyan-400">(<span x-text="status.count"></span>)</span>
-                                        <span x-show="status.current_podcast" class="text-gray-400 text-xs" x-text="status.current_podcast"></span>
-                                    </div>
-                                </template>
+                    <!-- Generation Progress -->
+                    <div x-show="generating" class="mb-6 p-4 bg-gradient-to-r from-cyan-900/30 to-purple-900/30 rounded-lg border border-cyan-700/30">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></div>
+                            <div>
+                                <div class="font-medium text-cyan-200" x-text="generationStep"></div>
+                                <div class="text-xs text-gray-400" x-text="generationDetail"></div>
                             </div>
-                        </template>
-                        <span x-show="jobError" x-text="jobError" class="text-red-400 text-sm block mt-1"></span>
+                        </div>
+                    </div>
+
+                    <!-- Error Display -->
+                    <div x-show="generationError" class="mb-6 p-4 bg-red-900/30 rounded-lg border border-red-700/50">
+                        <p class="text-red-300" x-text="generationError"></p>
                     </div>
 
                     <!-- Briefing Content -->
                     <template x-if="currentBriefing">
                         <div>
-                            <div class="text-sm text-gray-400 mb-4 flex flex-wrap gap-4">
-                                <span>Generated: <span x-text="new Date(currentBriefing.generated_at).toLocaleString()"></span></span>
-                                <span>X: <span x-text="currentBriefing.stats?.items_fetched?.x || 0"></span></span>
-                                <span>YouTube: <span x-text="currentBriefing.stats?.items_fetched?.youtube || 0"></span></span>
-                                <span x-show="currentBriefing.stats?.transcripts_fetched" class="text-green-400">
-                                    📝 <span x-text="currentBriefing.stats?.transcripts_fetched || 0"></span> transcripts
+                            <!-- Metadata -->
+                            <div class="text-sm text-gray-400 mb-4 flex flex-wrap items-center gap-4">
+                                <span class="flex items-center gap-1">
+                                    🕐 <span x-text="new Date(currentBriefing.generated_at).toLocaleString()"></span>
+                                </span>
+                                <span x-show="currentBriefing.focus" class="flex items-center gap-1">
+                                    🎯 Focus: <span class="text-cyan-400" x-text="currentBriefing.focus"></span>
+                                </span>
+                                <span x-show="currentBriefing.stats?.x_sources" class="flex items-center gap-1">
+                                    𝕏 <span x-text="currentBriefing.stats.x_sources"></span> accounts
+                                </span>
+                                <span x-show="currentBriefing.stats?.youtube_sources" class="flex items-center gap-1">
+                                    ▶ <span x-text="currentBriefing.stats.youtube_sources"></span> channels
                                 </span>
                             </div>
 
-                            <div class="bg-gray-700/50 rounded p-4 whitespace-pre-wrap text-sm leading-relaxed mb-6" x-text="currentBriefing.summary"></div>
+                            <!-- Executive Summary -->
+                            <div class="mb-8">
+                                <h3 class="text-lg font-semibold mb-3 text-cyan-400">Executive Summary</h3>
+                                <div class="bg-gray-700/50 rounded-lg p-4 prose prose-invert prose-sm max-w-none">
+                                    <div x-html="formatMarkdown(currentBriefing.summary)"></div>
+                                </div>
+                            </div>
 
-                            <!-- Top Items -->
-                            <template x-if="currentBriefing.items?.length">
-                                <div>
-                                    <h3 class="text-lg font-medium mb-3">Top Posts</h3>
-                                    <div class="space-y-3">
-                                        <template x-for="item in (currentBriefing?.items || []).slice(0, 8)" :key="item.platform_id">
-                                            <div class="bg-gray-700/50 rounded p-3">
-                                                <div class="flex items-start justify-between">
-                                                    <div class="flex items-center gap-2">
-                                                        <span x-show="item.platform === 'x'" class="text-lg">𝕏</span>
-                                                        <span x-show="item.platform === 'youtube'" class="text-lg text-red-500">▶</span>
-                                                        <span class="font-medium text-cyan-400" x-text="item.source_name || item.source"></span>
-                                                    </div>
-                                                    <div class="text-xs text-gray-400">
-                                                        <template x-if="item.platform === 'x'">
-                                                            <span>❤️ <span x-text="item.metrics?.like_count || 0"></span></span>
-                                                        </template>
-                                                        <template x-if="item.platform === 'youtube'">
-                                                            <span>
-                                                                <span x-show="item.metrics?.has_transcript" class="text-green-400 mr-1" title="Transcript available">📝</span>
-                                                                👁 <span x-text="(item.metrics?.view_count || 0).toLocaleString()"></span>
-                                                            </span>
-                                                        </template>
+                            <!-- Sections -->
+                            <template x-for="section in currentBriefing.sections" :key="section.title">
+                                <div class="mb-8">
+                                    <h3 class="text-lg font-semibold mb-3 flex items-center gap-2"
+                                        :class="section.platform === 'x' ? 'text-gray-300' : section.platform === 'youtube' ? 'text-red-400' : 'text-purple-400'">
+                                        <span x-text="section.platform === 'x' ? '𝕏' : section.platform === 'youtube' ? '▶' : '🎙️'"></span>
+                                        <span x-text="section.title"></span>
+                                    </h3>
+
+                                    <!-- X Section -->
+                                    <template x-if="section.platform === 'x'">
+                                        <div class="bg-gray-700/50 rounded-lg p-4">
+                                            <div class="prose prose-invert prose-sm max-w-none" x-html="formatMarkdown(section.content)"></div>
+                                            <div class="mt-3 pt-3 border-t border-gray-600">
+                                                <p class="text-xs text-gray-500">Accounts: <span x-text="section.accounts?.join(', ')"></span></p>
+                                            </div>
+                                        </div>
+                                    </template>
+
+                                    <!-- YouTube Section -->
+                                    <template x-if="section.platform === 'youtube'">
+                                        <div class="space-y-4">
+                                            <template x-for="video in section.videos" :key="video.url">
+                                                <div class="bg-gray-700/50 rounded-lg p-4">
+                                                    <div class="flex items-start gap-4">
+                                                        <a :href="video.url" target="_blank" class="flex-shrink-0">
+                                                            <img :src="getYouTubeThumbnail(video.url)" class="w-32 h-20 object-cover rounded" loading="lazy">
+                                                        </a>
+                                                        <div class="flex-1 min-w-0">
+                                                            <h4 class="font-medium text-sm mb-1 line-clamp-1" x-text="video.title"></h4>
+                                                            <p class="text-xs text-cyan-400 mb-2" x-text="video.channel"></p>
+                                                            <p class="text-sm text-gray-300 line-clamp-3" x-text="video.summary?.substring(0, 200) + '...'"></p>
+                                                            <div class="mt-2 flex gap-3">
+                                                                <a :href="video.url" target="_blank" class="text-cyan-400 text-xs hover:underline">Watch →</a>
+                                                                <button @click="expandVideo(video)" class="text-purple-400 text-xs hover:underline">Full Summary</button>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                                <p class="mt-2 text-sm line-clamp-3" x-text="item.content"></p>
-                                                <a :href="item.url" target="_blank" class="text-cyan-400 text-xs hover:underline mt-1 inline-block">
-                                                    View <span x-text="item.platform === 'youtube' ? 'on YouTube' : 'on X'"></span> →
-                                                </a>
-                                            </div>
-                                        </template>
-                                    </div>
+                                            </template>
+                                        </div>
+                                    </template>
+
+                                    <!-- Podcast Section -->
+                                    <template x-if="section.platform === 'podcast'">
+                                        <div class="space-y-4">
+                                            <template x-for="episode in section.episodes" :key="episode.url">
+                                                <div class="bg-gray-700/50 rounded-lg p-4">
+                                                    <div class="flex items-start gap-3">
+                                                        <div class="w-12 h-12 bg-purple-900/50 rounded-lg flex items-center justify-center flex-shrink-0">
+                                                            <span class="text-xl">🎧</span>
+                                                        </div>
+                                                        <div class="flex-1 min-w-0">
+                                                            <h4 class="font-medium text-sm mb-1" x-text="episode.title"></h4>
+                                                            <p class="text-xs text-purple-400 mb-2" x-text="episode.podcast_name"></p>
+                                                            <p class="text-sm text-gray-300 line-clamp-3" x-text="episode.summary?.substring(0, 200) + '...'"></p>
+                                                            <div class="mt-2 flex gap-3">
+                                                                <a x-show="episode.url" :href="episode.url" target="_blank" class="text-cyan-400 text-xs hover:underline">Listen →</a>
+                                                                <button @click="expandPodcast(episode)" class="text-purple-400 text-xs hover:underline">Full Summary</button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </template>
                                 </div>
                             </template>
+
+                            <!-- Stats Footer -->
+                            <div class="mt-8 pt-4 border-t border-gray-700 text-xs text-gray-500 flex flex-wrap gap-4">
+                                <span x-show="currentBriefing.stats?.x_summary_generated">✓ X summary via Grok</span>
+                                <span x-show="currentBriefing.stats?.youtube_summaries_generated">✓ <span x-text="currentBriefing.stats.youtube_summaries_generated"></span> YouTube videos via Gemini</span>
+                                <span x-show="currentBriefing.stats?.podcast_summaries_generated">✓ <span x-text="currentBriefing.stats.podcast_summaries_generated"></span> podcasts via Gemini</span>
+                            </div>
                         </div>
                     </template>
 
-                    <template x-if="!currentBriefing">
+                    <!-- Empty State -->
+                    <template x-if="!currentBriefing && !generating">
                         <div class="text-gray-500 text-center py-12">
                             <p class="text-4xl mb-4">🤖</p>
-                            <p>No briefings yet. Add sources and generate!</p>
+                            <p class="mb-2">No briefings yet.</p>
+                            <p class="text-sm">Add sources and click "Full Briefing" to get started!</p>
                         </div>
                     </template>
+                </div>
+
+                <!-- Previous Briefings -->
+                <div x-show="briefings.length > 1" class="mt-6 bg-gray-800 rounded-lg p-4">
+                    <h3 class="text-sm font-medium text-gray-400 mb-3">Previous Briefings</h3>
+                    <div class="flex flex-wrap gap-2">
+                        <template x-for="(b, idx) in briefings.slice(1, 6)" :key="b.id || idx">
+                            <button
+                                @click="loadBriefing(b)"
+                                class="text-xs px-3 py-1 rounded bg-gray-700 hover:bg-gray-600"
+                                x-text="new Date(b.generated_at).toLocaleDateString() + ' ' + new Date(b.generated_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})"
+                            ></button>
+                        </template>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="mt-8 text-center text-gray-500 text-sm flex items-center justify-center gap-4">
-            <span>Briefly 3000 • Powered by Grok 4.1</span>
-            <span class="flex items-center gap-1">
-                <span class="w-2 h-2 rounded-full" :class="settingsData.database_type === 'postgresql' ? 'bg-green-400' : 'bg-yellow-400'"></span>
-                <span x-text="settingsData.database_type === 'postgresql' ? 'VPS' : 'Local'"></span>
-            </span>
+        <!-- Expanded Content Modal -->
+        <div x-show="expandedContent" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/70" @click.self="expandedContent = null">
+            <div class="bg-gray-800 rounded-lg w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold" x-text="expandedContent?.title || 'Content'"></h3>
+                    <button @click="expandedContent = null" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+                </div>
+                <div class="prose prose-invert prose-sm max-w-none" x-html="formatMarkdown(expandedContent?.summary || expandedContent?.content || '')"></div>
+                <div class="mt-4 pt-4 border-t border-gray-700">
+                    <a x-show="expandedContent?.url" :href="expandedContent?.url" target="_blank" class="text-cyan-400 hover:underline">
+                        View Original →
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="mt-8 text-center text-gray-500 text-sm">
+            <span>Briefly 3000 • LLM-Native Architecture • Grok for X • Gemini for Media</span>
         </div>
     </div>
 
     <style>
         [x-cloak] { display: none !important; }
+
+        .prose h1, .prose h2, .prose h3, .prose h4 {
+            color: #e5e7eb;
+            margin-top: 1em;
+            margin-bottom: 0.5em;
+        }
+        .prose h1:first-child, .prose h2:first-child, .prose h3:first-child {
+            margin-top: 0;
+        }
+        .prose p { margin-bottom: 0.75em; }
+        .prose ul, .prose ol { margin-left: 1.5em; margin-bottom: 0.75em; }
+        .prose li { margin-bottom: 0.25em; }
+        .prose strong { color: #22d3ee; }
+        .prose a { color: #22d3ee; }
+        .prose blockquote {
+            border-left: 3px solid #4b5563;
+            padding-left: 1em;
+            color: #9ca3af;
+            font-style: italic;
+        }
     </style>
+
     <script>
         function dashboard() {
             return {
-                sources: { x: [], youtube: [] },
-                cacheStats: {},
+                // Sources
+                sources: { x: [], youtube: [], podcasts: [] },
                 newXSource: '',
                 newYTSource: '',
-                youtubeChannel: '',
+                newPodcastName: '',
+                newPodcastUrl: '',
                 xError: '',
                 ytError: '',
-                ytImportResult: '',
-                ytImportError: false,
+                podcastError: '',
                 loading: false,
-                importingYT: false,
+
+                // Briefing generation
                 generating: false,
-                jobStatus: null,
-                jobStep: '',
-                jobError: null,
-                jobId: null,
-                reconnected: false,
-                mediaStatus: null,
-                pollInterval: null,
+                generationStep: '',
+                generationDetail: '',
+                generationError: null,
+                hoursBack: '24',
+                briefingFocus: '',
+                includeX: true,
+                includeYouTube: true,
+                includePodcasts: true,
+
+                // Briefings
                 briefings: [],
-                selectedBriefingId: null,
-                transcriptStats: {},
-                processingTranscripts: false,
-                transcriptResult: '',
-                searchQuery: '',
-                searchResults: [],
-                searching: false,
-                searchError: '',
-                vectorStats: {},
-                // Settings
-                showSettings: false,
-                settingsData: {
-                    database_mode: 'local',
-                    database_type: 'sqlite',
-                    database_url_masked: '',
-                    environment: 'development',
-                    is_production: false,
-                    restart_required: false,
-                },
-                envCommand: '',
+                currentBriefing: null,
+
+                // Testing
+                testingX: false,
+                testingPodcast: false,
+                testAudioUrl: '',
+
+                // Modal
+                expandedContent: null,
+
+                // API status
+                apiStatus: { grok: false, gemini: false },
 
                 async init() {
                     await this.loadSources();
-                    await this.loadCacheStats();
                     await this.loadBriefings();
-                    await this.loadTranscriptStats();
-                    await this.loadVectorStats();
-                    await this.loadSettings();
-                    await this.checkActiveJob();
+                    await this.checkApiStatus();
                 },
 
-                async loadSettings() {
+                async checkApiStatus() {
                     try {
-                        const resp = await fetch('/api/settings');
-                        if (resp.ok) {
-                            this.settingsData = await resp.json();
-                        }
-                    } catch (e) { console.error('Failed to load settings:', e); }
-                },
+                        const grokResp = await fetch('/api/llm/test/grok');
+                        this.apiStatus.grok = grokResp.ok;
+                    } catch { this.apiStatus.grok = false; }
 
-                async switchDatabase(mode) {
                     try {
-                        // Get the env command for the target mode
-                        const cmdResp = await fetch(`/api/settings/env-command?mode=${mode}`);
-                        if (cmdResp.ok) {
-                            const cmdData = await cmdResp.json();
-                            this.envCommand = cmdData.command;
-                        }
-
-                        // Update settings preference
-                        const resp = await fetch('/api/settings', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ database_mode: mode })
-                        });
-                        if (resp.ok) {
-                            this.settingsData = await resp.json();
-                        }
-                    } catch (e) { console.error('Failed to switch database:', e); }
-                },
-
-                async checkActiveJob() {
-                    try {
-                        const resp = await fetch('/api/jobs/active');
-                        if (resp.ok) {
-                            const activeJob = await resp.json();
-                            this.jobId = activeJob.id;
-                            this.jobStatus = activeJob.status;
-                            this.jobStep = activeJob.progress?.step || '';
-                            this.reconnected = true;
-                            this.generating = true;
-                            this.startPolling();
-                        }
-                    } catch (e) {
-                        // No active job or error, continue normally
-                        console.log('No active job to reconnect to');
-                    }
+                        const geminiResp = await fetch('/api/llm/test/gemini');
+                        this.apiStatus.gemini = geminiResp.ok;
+                    } catch { this.apiStatus.gemini = false; }
                 },
 
                 async loadSources() {
                     try {
                         const resp = await fetch('/api/sources');
-                        this.sources = await resp.json();
-                    } catch (e) { console.error(e); }
-                },
-
-                async loadCacheStats() {
-                    try {
-                        const resp = await fetch('/api/sources/cache/stats');
-                        this.cacheStats = await resp.json();
-                    } catch (e) { console.error(e); }
+                        const data = await resp.json();
+                        // Normalize X sources to simple array
+                        this.sources.x = (data.x || []).map(s => typeof s === 'string' ? s : s.identifier);
+                        this.sources.youtube = data.youtube || [];
+                        this.sources.podcasts = data.podcasts || [];
+                    } catch (e) { console.error('Failed to load sources:', e); }
                 },
 
                 async loadBriefings() {
@@ -527,230 +518,311 @@
                         const resp = await fetch('/api/briefings');
                         if (resp.ok) {
                             this.briefings = await resp.json();
-                            if (this.briefings.length > 0 && !this.selectedBriefingId) {
-                                this.selectedBriefingId = this.briefings[0].id || this.briefings[0].job_id;
+                            if (this.briefings.length > 0) {
+                                this.currentBriefing = this.briefings[0];
                             }
                         }
                     } catch (e) { console.error(e); }
                 },
 
-                get currentBriefing() {
-                    if (!this.selectedBriefingId || this.briefings.length === 0) return null;
-                    return this.briefings.find(b =>
-                        b.id === this.selectedBriefingId || b.job_id === this.selectedBriefingId
-                    ) || null;
+                loadBriefing(briefing) {
+                    this.currentBriefing = briefing;
                 },
 
-                async loadTranscriptStats() {
-                    try {
-                        const resp = await fetch('/api/briefings/transcripts/stats');
-                        if (resp.ok) this.transcriptStats = await resp.json();
-                    } catch (e) { console.error(e); }
-                },
-
-                async loadVectorStats() {
-                    try {
-                        const resp = await fetch('/api/search/stats');
-                        if (resp.ok) this.vectorStats = await resp.json();
-                    } catch (e) { console.error(e); }
-                },
-
-                async searchContent() {
-                    if (!this.searchQuery.trim()) return;
-                    this.searching = true;
-                    this.searchError = '';
-
-                    try {
-                        const resp = await fetch('/api/search', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ query: this.searchQuery, limit: 10 })
-                        });
-                        if (resp.ok) {
-                            const data = await resp.json();
-                            this.searchResults = data.results;
-                        } else {
-                            const err = await resp.json();
-                            this.searchError = err.detail || 'Search failed';
-                            this.searchResults = [];
-                        }
-                    } catch (e) {
-                        console.error(e);
-                        this.searchError = 'Network error';
-                        this.searchResults = [];
-                    } finally {
-                        this.searching = false;
-                    }
-                },
-
-                async processTranscripts() {
-                    this.processingTranscripts = true;
-                    this.transcriptResult = '';
-
-                    try {
-                        const resp = await fetch('/api/briefings/transcripts/process?limit=5', {
-                            method: 'POST',
-                        });
-                        const job = await resp.json();
-
-                        if (job.status === 'no_pending') {
-                            this.transcriptResult = 'No transcripts to process';
-                            this.processingTranscripts = false;
-                            return;
-                        }
-
-                        // Poll for completion
-                        const poll = setInterval(async () => {
-                            const statusResp = await fetch(`/api/briefings/generate/${job.job_id}`);
-                            const status = await statusResp.json();
-
-                            if (status.status === 'completed') {
-                                clearInterval(poll);
-                                this.processingTranscripts = false;
-                                this.transcriptResult = `Processed ${status.processed_count} transcripts`;
-                                await this.loadTranscriptStats();
-                            } else if (status.status === 'failed') {
-                                clearInterval(poll);
-                                this.processingTranscripts = false;
-                                this.transcriptResult = 'Processing failed: ' + status.error;
-                            }
-                        }, 2000);
-                    } catch (e) {
-                        this.processingTranscripts = false;
-                        this.transcriptResult = 'Network error';
-                    }
-                },
-
-                async addSource(platform) {
-                    const identifier = platform === 'x' ? this.newXSource : this.newYTSource;
-                    if (!identifier.trim()) return;
-
+                async addXSource() {
+                    if (!this.newXSource.trim()) return;
                     this.loading = true;
                     this.xError = '';
+
+                    try {
+                        const resp = await fetch('/api/sources', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ platform: 'x', identifier: this.newXSource.trim() })
+                        });
+
+                        if (!resp.ok) {
+                            const err = await resp.json();
+                            this.xError = err.detail || 'Failed to add source';
+                        } else {
+                            this.newXSource = '';
+                            await this.loadSources();
+                        }
+                    } catch (e) {
+                        this.xError = 'Network error';
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+
+                async addYTSource() {
+                    if (!this.newYTSource.trim()) return;
+                    this.loading = true;
                     this.ytError = '';
 
                     try {
                         const resp = await fetch('/api/sources', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ platform, identifier: identifier.trim() })
+                            body: JSON.stringify({ platform: 'youtube', identifier: this.newYTSource.trim() })
                         });
 
                         if (!resp.ok) {
                             const err = await resp.json();
-                            if (platform === 'x') this.xError = err.detail;
-                            else this.ytError = err.detail;
+                            this.ytError = err.detail || 'Failed to add source';
                         } else {
-                            if (platform === 'x') this.newXSource = '';
-                            else this.newYTSource = '';
+                            this.newYTSource = '';
                             await this.loadSources();
-                            await this.loadCacheStats();
                         }
                     } catch (e) {
-                        if (platform === 'x') this.xError = 'Network error';
-                        else this.ytError = 'Network error';
+                        this.ytError = 'Network error';
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+
+                async addPodcast() {
+                    if (!this.newPodcastName.trim() || !this.newPodcastUrl.trim()) {
+                        this.podcastError = 'Name and URL required';
+                        return;
+                    }
+                    this.loading = true;
+                    this.podcastError = '';
+
+                    try {
+                        const resp = await fetch('/api/sources/podcasts', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                name: this.newPodcastName.trim(),
+                                feed_url: this.newPodcastUrl.trim()
+                            })
+                        });
+
+                        if (!resp.ok) {
+                            const err = await resp.json();
+                            this.podcastError = err.detail || 'Failed to add podcast';
+                        } else {
+                            this.newPodcastName = '';
+                            this.newPodcastUrl = '';
+                            await this.loadSources();
+                        }
+                    } catch (e) {
+                        this.podcastError = 'Network error';
                     } finally {
                         this.loading = false;
                     }
                 },
 
                 async removeSource(platform, identifier) {
-                    await fetch(`/api/sources/${platform}/${identifier}`, { method: 'DELETE' });
+                    await fetch(`/api/sources/${platform}/${encodeURIComponent(identifier)}`, { method: 'DELETE' });
                     await this.loadSources();
                 },
 
-                async importYouTube() {
-                    if (!this.youtubeChannel.trim()) return;
-
-                    this.importingYT = true;
-                    this.ytImportResult = '';
-                    this.ytImportError = false;
-
-                    try {
-                        const resp = await fetch('/api/sources/youtube/import', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ channel: this.youtubeChannel.trim() })
-                        });
-
-                        const data = await resp.json();
-
-                        if (!resp.ok) {
-                            this.ytImportResult = data.detail || 'Import failed';
-                            this.ytImportError = true;
-                        } else {
-                            this.ytImportResult = `Imported ${data.new_sources_added} new channels from ${data.channel}`;
-                            this.youtubeChannel = '';
-                            await this.loadSources();
-                            await this.loadCacheStats();
-                        }
-                    } catch (e) {
-                        this.ytImportResult = 'Network error';
-                        this.ytImportError = true;
-                    } finally {
-                        this.importingYT = false;
-                    }
+                async removePodcast(name) {
+                    await fetch(`/api/sources/podcasts/${encodeURIComponent(name)}`, { method: 'DELETE' });
+                    await this.loadSources();
                 },
 
-                async generateBriefing() {
-                    this.generating = true;
-                    this.jobStatus = 'pending';
-                    this.jobError = null;
-                    this.reconnected = false;
-                    this.mediaStatus = null;
-
+                async testXSummary() {
+                    if (this.sources.x.length === 0) {
+                        alert('Add X accounts first');
+                        return;
+                    }
+                    this.testingX = true;
                     try {
-                        const resp = await fetch('/api/jobs', {
+                        const resp = await fetch('/api/llm/grok/summarize-batch', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
-                                type: 'briefing',
-                                params: { hours_back: 72 }
+                                usernames: this.sources.x.slice(0, 3),
+                                hours: 24
                             })
                         });
-
-                        const job = await resp.json();
-                        this.jobId = job.job_id;
-                        this.startPolling();
+                        const data = await resp.json();
+                        if (resp.ok && data.results) {
+                            alert('X Summary Test:\n\n' + (data.results[0]?.combined_summary || 'No summary').substring(0, 500) + '...');
+                        } else {
+                            alert('Test failed: ' + (data.detail || 'Unknown error'));
+                        }
                     } catch (e) {
-                        this.generating = false;
-                        this.jobStatus = 'failed';
-                        this.jobError = 'Network error';
+                        alert('Network error: ' + e.message);
+                    } finally {
+                        this.testingX = false;
                     }
                 },
 
-                startPolling() {
-                    if (this.pollInterval) {
-                        clearInterval(this.pollInterval);
+                async testPodcastSummary() {
+                    if (!this.testAudioUrl.trim()) {
+                        alert('Enter an audio URL first');
+                        return;
+                    }
+                    this.testingPodcast = true;
+                    try {
+                        const resp = await fetch('/api/llm/gemini/summarize-audio', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                audio_url: this.testAudioUrl.trim(),
+                                title: 'Test Episode'
+                            })
+                        });
+                        const data = await resp.json();
+                        if (resp.ok) {
+                            alert('Podcast Summary Test:\n\n' + (data.summary || 'No summary').substring(0, 500) + '...');
+                        } else {
+                            alert('Test failed: ' + (data.detail || 'Unknown error'));
+                        }
+                    } catch (e) {
+                        alert('Network error: ' + e.message);
+                    } finally {
+                        this.testingPodcast = false;
+                    }
+                },
+
+                async generateQuickBriefing() {
+                    if (this.sources.x.length === 0) {
+                        alert('Add X accounts first');
+                        return;
                     }
 
-                    this.pollInterval = setInterval(async () => {
-                        try {
-                            const statusResp = await fetch(`/api/jobs/${this.jobId}`);
-                            const status = await statusResp.json();
-                            this.jobStatus = status.status;
-                            this.jobStep = status.progress?.step || '';
-                            this.mediaStatus = status.progress?.media_status || null;
+                    this.generating = true;
+                    this.generationError = null;
+                    this.generationStep = 'Generating quick X briefing via Grok...';
+                    this.generationDetail = `${this.sources.x.length} accounts, last ${this.hoursBack}h`;
 
-                            if (status.status === 'completed') {
-                                clearInterval(this.pollInterval);
-                                this.pollInterval = null;
-                                this.generating = false;
-                                this.reconnected = false;
-                                // Select the new briefing atomically
-                                this.selectedBriefingId = this.jobId;
-                                await this.loadBriefings();
-                            } else if (status.status === 'failed') {
-                                clearInterval(this.pollInterval);
-                                this.pollInterval = null;
-                                this.generating = false;
-                                this.reconnected = false;
-                                this.jobError = status.error;
-                            }
-                        } catch (e) {
-                            console.error('Polling error:', e);
+                    try {
+                        const resp = await fetch('/api/llm/briefing/quick', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                accounts: this.sources.x,
+                                hours: parseInt(this.hoursBack),
+                                focus: this.briefingFocus || null
+                            })
+                        });
+
+                        const data = await resp.json();
+                        if (resp.ok) {
+                            // Create briefing object
+                            const briefing = {
+                                id: Date.now().toString(),
+                                generated_at: new Date().toISOString(),
+                                summary: data.summary,
+                                focus: data.focus,
+                                sections: [{
+                                    title: 'X/Twitter Activity',
+                                    platform: 'x',
+                                    content: data.summary,
+                                    accounts: data.accounts
+                                }],
+                                stats: {
+                                    x_sources: data.accounts?.length || 0,
+                                    x_summary_generated: true
+                                }
+                            };
+                            this.currentBriefing = briefing;
+                            this.briefings.unshift(briefing);
+                        } else {
+                            this.generationError = data.detail || 'Failed to generate briefing';
                         }
-                    }, 1500);
+                    } catch (e) {
+                        this.generationError = 'Network error: ' + e.message;
+                    } finally {
+                        this.generating = false;
+                    }
+                },
+
+                async generateFullBriefing() {
+                    const hasX = this.includeX && this.sources.x.length > 0;
+                    const hasYT = this.includeYouTube && this.sources.youtube.length > 0;
+                    const hasPodcasts = this.includePodcasts && this.sources.podcasts.length > 0;
+
+                    if (!hasX && !hasYT && !hasPodcasts) {
+                        alert('Select at least one source type with content');
+                        return;
+                    }
+
+                    this.generating = true;
+                    this.generationError = null;
+                    this.generationStep = 'Starting briefing generation...';
+                    this.generationDetail = '';
+
+                    try {
+                        // Build request
+                        const requestBody = {
+                            hours_back: parseInt(this.hoursBack),
+                            focus: this.briefingFocus || null
+                        };
+
+                        if (hasX) requestBody.x_sources = this.sources.x;
+                        if (hasYT) requestBody.youtube_sources = this.sources.youtube.map(s => s.identifier || s);
+                        // Podcasts would need URLs - for now skip
+
+                        // Update progress
+                        if (hasX) {
+                            this.generationStep = 'Summarizing X accounts via Grok...';
+                            this.generationDetail = `${this.sources.x.length} accounts`;
+                        }
+
+                        const resp = await fetch('/api/llm/briefing', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(requestBody)
+                        });
+
+                        const data = await resp.json();
+                        if (resp.ok) {
+                            // Add metadata
+                            data.id = Date.now().toString();
+                            data.generated_at = data.stats?.generated_at || new Date().toISOString();
+                            this.currentBriefing = data;
+                            this.briefings.unshift(data);
+                        } else {
+                            this.generationError = data.detail || 'Failed to generate briefing';
+                        }
+                    } catch (e) {
+                        this.generationError = 'Network error: ' + e.message;
+                    } finally {
+                        this.generating = false;
+                    }
+                },
+
+                expandVideo(video) {
+                    this.expandedContent = video;
+                },
+
+                expandPodcast(episode) {
+                    this.expandedContent = episode;
+                },
+
+                getYouTubeThumbnail(url) {
+                    if (!url) return null;
+                    const match = url.match(/[?&]v=([^&]+)/) || url.match(/youtu\.be\/([^?]+)/);
+                    if (match) {
+                        return `https://img.youtube.com/vi/${match[1]}/mqdefault.jpg`;
+                    }
+                    return null;
+                },
+
+                formatMarkdown(text) {
+                    if (!text) return '';
+                    // Simple markdown formatting
+                    return text
+                        .replace(/^### (.+)$/gm, '<h3 class="text-base font-semibold mt-4 mb-2">$1</h3>')
+                        .replace(/^## (.+)$/gm, '<h2 class="text-lg font-semibold mt-4 mb-2">$1</h2>')
+                        .replace(/^# (.+)$/gm, '<h1 class="text-xl font-bold mt-4 mb-2">$1</h1>')
+                        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+                        .replace(/^- (.+)$/gm, '<li>$1</li>')
+                        .replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>')
+                        .replace(/(<li>.*<\/li>\n?)+/g, '<ul class="list-disc ml-4 my-2">$&</ul>')
+                        .replace(/\n\n/g, '</p><p class="mb-3">')
+                        .replace(/\n/g, '<br>')
+                        .replace(/^(.+)$/gm, function(match) {
+                            if (match.startsWith('<')) return match;
+                            return match;
+                        });
                 }
             };
         }

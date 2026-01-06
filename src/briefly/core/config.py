@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     # YouTube (optional)
     youtube_api_key: str | None = None
 
+    # Gemini (for YouTube and podcast summarization)
+    gemini_api_key: str | None = None
+    gemini_model: str = "gemini-2.5-flash"  # Fast model for summarization
+
     # OpenAI (for embeddings)
     openai_api_key: str | None = None
     embedding_model: str = "text-embedding-3-small"

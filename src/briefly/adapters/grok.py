@@ -1,0 +1,365 @@
+"""Grok adapter for X content via xAI API.
+
+Uses Grok's built-in X search capability to summarize account activity,
+bypassing X API rate limits entirely.
+
+IMPORTANT: Must use the Responses API with x_search tool to get real-time data.
+Without tools, Grok will hallucinate based on training data.
+"""
+
+import logging
+from datetime import datetime, timedelta
+from typing import Any
+
+import httpx
+from openai import OpenAI
+
+from briefly.adapters.base import BaseAdapter, ContentItem
+from briefly.core.config import get_settings
+
+logger = logging.getLogger(__name__)
+
+
+class GrokAdapter(BaseAdapter):
+    """
+    Grok-powered X content adapter.
+
+    Instead of using the X API directly (which has severe rate limits on Free tier),
+    this adapter asks Grok to summarize X accounts using its built-in x_search tool.
+
+    CRITICAL: Uses the xAI Responses API (/v1/responses) with x_search tool.
+    The standard chat completions API does NOT support x_search.
+
+    Benefits:
+    - No X API rate limits
+    - Returns summarized content (better for briefings)
+    - Can handle many accounts in a single request
+    """
+
+    platform_name = "x"
+
+    def __init__(self) -> None:
+        self._settings = get_settings()
+        # OpenAI client for simple queries (no search needed)
+        self._client = OpenAI(
+            api_key=self._settings.xai_api_key,
+            base_url=self._settings.xai_base_url,
+        )
+        # HTTP client for Responses API (search tools)
+        self._http_client = httpx.AsyncClient(
+            base_url=self._settings.xai_base_url,
+            headers={
+                "Authorization": f"Bearer {self._settings.xai_api_key}",
+                "Content-Type": "application/json",
+            },
+            timeout=120.0,
+        )
+
+    async def _call_responses_api(
+        self,
+        prompt: str,
+        tools: list[dict],
+        model: str = "grok-4-1-fast",  # Only grok-4 family supports server-side tools
+    ) -> str:
+        """
+        Call xAI Responses API with search tools.
+
+        This is the correct API for x_search - chat completions doesn't support it.
+        """
+        payload = {
+            "model": model,
+            "input": [{"role": "user", "content": prompt}],
+            "tools": tools,
+        }
+
+        response = await self._http_client.post("/responses", json=payload)
+        response.raise_for_status()
+
+        data = response.json()
+
+        # Extract text from the response output
+        # Response structure: output is a list with tool calls and messages
+        # We want the message item with type="message" containing output_text
+        output = data.get("output", [])
+        for item in output:
+            if item.get("type") == "message":
+                content = item.get("content", [])
+                for content_item in content:
+                    if content_item.get("type") == "output_text":
+                        return content_item.get("text", "")
+
+        # Fallback: try to find any text content in old format
+        for item in output:
+            if item.get("type") == "text":
+                return item.get("text", "")
+
+        # Last resort
+        logger.warning(f"Could not parse xAI response: {data}")
+        return "No response text found"
+
+    async def lookup_user(self, identifier: str) -> dict[str, Any] | None:
+        """
+        Look up X user via Grok.
+
+        Note: This is a simplified lookup - Grok confirms if user exists
+        but doesn't return detailed metadata like the X API would.
+        """
+        username = identifier.lstrip("@")
+        try:
+            response = self._client.chat.completions.create(
+                model="grok-3-latest",
+                messages=[
+                    {
+                        "role": "user",
+                        "content": f"Does the X/Twitter account @{username} exist? Reply with just 'yes' or 'no' followed by the account's display name if it exists.",
+                    }
+                ],
+            )
+            result = response.choices[0].message.content.lower()
+            if result.startswith("yes"):
+                # Extract name if provided
+                name = result.replace("yes", "").strip(" -,:")
+                return {
+                    "id": username,  # We don't get real ID from Grok
+                    "username": username,
+                    "name": name or username,
+                }
+            return None
+        except Exception as e:
+            logger.error(f"Grok lookup failed for {identifier}: {e}")
+            return None
+
+    def _get_x_search_tool(
+        self,
+        usernames: list[str] | None = None,
+        hours: int = 24,
+    ) -> dict:
+        """Build x_search tool configuration for Responses API."""
+        # Calculate date range
+        # Note: to_date is exclusive in X search, so add 1 day to include today
+        end_date = datetime.now() + timedelta(days=1)
+        start_date = datetime.now() - timedelta(hours=hours)
+
+        tool = {
+            "type": "x_search",
+            "from_date": start_date.strftime("%Y-%m-%d"),
+            "to_date": end_date.strftime("%Y-%m-%d"),
+        }
+
+        # Filter to specific handles if provided (max 10)
+        if usernames:
+            clean_usernames = [u.lstrip("@") for u in usernames[:10]]
+            tool["allowed_x_handles"] = clean_usernames
+
+        return tool
+
+    async def summarize_account(
+        self,
+        username: str,
+        hours: int = 24,
+        focus: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Get a summary of an X account's recent activity.
+
+        Uses x_search tool via Responses API to fetch REAL posts from X.
+
+        Args:
+            username: X username (with or without @)
+            hours: How many hours back to look (default 24)
+            focus: Optional focus area (e.g., "AI news", "crypto", "tech")
+
+        Returns:
+            Dict with summary, key_posts, and metadata
+        """
+        username = username.lstrip("@")
+        focus_clause = f" Focus on {focus}." if focus else ""
+
+        prompt = f"""Search X for posts from @{username} in the last {hours} hours and summarize them.{focus_clause}
+
+Include:
+1. Main topics/themes they discussed
+2. Key announcements or notable posts
+3. Any viral or highly-engaged posts
+4. Sentiment/tone of their posts
+
+If they haven't posted in that time period, say so clearly."""
+
+        try:
+            summary = await self._call_responses_api(
+                prompt=prompt,
+                tools=[self._get_x_search_tool([username], hours)],
+            )
+
+            return {
+                "username": username,
+                "summary": summary,
+                "hours": hours,
+                "focus": focus,
+                "model": "grok-4-1-fast",
+                "fetched_at": datetime.now().isoformat(),
+                "used_x_search": True,
+            }
+        except Exception as e:
+            logger.error(f"Grok summarize failed for @{username}: {e}")
+            return {
+                "username": username,
+                "summary": f"Failed to fetch summary: {e}",
+                "error": str(e),
+            }
+
+    async def summarize_accounts_batch(
+        self,
+        usernames: list[str],
+        hours: int = 24,
+        focus: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """
+        Summarize multiple X accounts in a single request.
+
+        More efficient than individual calls - Grok can summarize
+        multiple accounts in one response.
+        """
+        if not usernames:
+            return []
+
+        clean_usernames = [u.lstrip("@") for u in usernames]
+        accounts_str = ", ".join(f"@{u}" for u in clean_usernames)
+        focus_clause = f" Focus on {focus}." if focus else ""
+
+        prompt = f"""Summarize what these X accounts posted in the last {hours} hours: {accounts_str}{focus_clause}
+
+For each account, provide:
+1. Key topics/themes
+2. Notable posts or announcements
+3. Engagement highlights (viral posts, controversies, etc.)
+
+If an account hasn't posted, note that. Format with clear headers for each account."""
+
+        try:
+            content = await self._call_responses_api(
+                prompt=prompt,
+                tools=[self._get_x_search_tool(clean_usernames, hours)],
+            )
+
+            return [{
+                "usernames": clean_usernames,
+                "combined_summary": content,
+                "hours": hours,
+                "focus": focus,
+                "model": "grok-4-1-fast",
+                "fetched_at": datetime.now().isoformat(),
+                "used_x_search": True,
+            }]
+        except Exception as e:
+            logger.error(f"Grok batch summarize failed: {e}")
+            return [{
+                "usernames": clean_usernames,
+                "combined_summary": f"Failed to fetch summaries: {e}",
+                "error": str(e),
+            }]
+
+    async def search_topic(
+        self,
+        topic: str,
+        hours: int = 24,
+        accounts: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """
+        Search X for a topic, optionally filtered to specific accounts.
+
+        Args:
+            topic: Topic or keywords to search
+            hours: How many hours back to search
+            accounts: Optional list of accounts to filter to
+
+        Returns:
+            Dict with summary and key posts
+        """
+        accounts_clause = ""
+        if accounts:
+            clean = [u.lstrip("@") for u in accounts]
+            accounts_clause = f" from accounts: {', '.join(f'@{u}' for u in clean)}"
+
+        prompt = f"""Search X for posts about "{topic}" from the last {hours} hours{accounts_clause}.
+
+Provide:
+1. Key themes and perspectives
+2. Notable posts and who posted them
+3. Any trending discussions or debates
+4. Overall sentiment around this topic"""
+
+        try:
+            summary = await self._call_responses_api(
+                prompt=prompt,
+                tools=[self._get_x_search_tool(accounts, hours)],
+            )
+
+            return {
+                "topic": topic,
+                "summary": summary,
+                "hours": hours,
+                "accounts": accounts,
+                "model": "grok-4-1-fast",
+                "fetched_at": datetime.now().isoformat(),
+                "used_x_search": True,
+            }
+        except Exception as e:
+            logger.error(f"Grok topic search failed: {e}")
+            return {
+                "topic": topic,
+                "summary": f"Failed to search topic: {e}",
+                "error": str(e),
+            }
+
+    async def fetch_content(
+        self,
+        identifiers: list[str],
+        start_time: datetime,
+        end_time: datetime,
+    ) -> list[ContentItem]:
+        """
+        Fetch summarized content from X accounts.
+
+        Note: This returns summarized content, not individual tweets.
+        The ContentItem will contain a summary rather than raw tweet text.
+        For briefing generation, this is actually more useful.
+        """
+        if not identifiers:
+            return []
+
+        hours = max(1, int((end_time - start_time).total_seconds() / 3600))
+
+        # Batch summarize all accounts
+        results = await self.summarize_accounts_batch(identifiers, hours=hours)
+
+        items = []
+        for result in results:
+            if "error" not in result:
+                # Create a single ContentItem with the combined summary
+                items.append(
+                    ContentItem(
+                        platform="x",
+                        platform_id=f"grok-summary-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+                        source_identifier=",".join(result.get("usernames", [])),
+                        source_name="Grok Summary",
+                        content=result.get("combined_summary", ""),
+                        url=None,
+                        metrics={"accounts_count": len(result.get("usernames", []))},
+                        posted_at=datetime.now(),
+                    )
+                )
+
+        return items
+
+
+# Singleton instance
+_grok_adapter: GrokAdapter | None = None
+
+
+def get_grok_adapter() -> GrokAdapter:
+    """Get the Grok adapter singleton."""
+    global _grok_adapter
+    if _grok_adapter is None:
+        _grok_adapter = GrokAdapter()
+    return _grok_adapter

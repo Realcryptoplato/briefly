@@ -8,7 +8,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from briefly.api.routes import sources, briefings, health, search, jobs, settings
+from briefly.api.routes import sources, briefings, health, search, jobs, settings, llm
 from briefly.services.jobs import get_job_service
 
 
@@ -41,6 +41,7 @@ app.include_router(search.router, prefix="/api/search", tags=["Search"])
 app.include_router(jobs.router, prefix="/api/jobs", tags=["Jobs"])
 app.include_router(jobs.n8n_router, prefix="/api/n8n", tags=["n8n Webhooks"])
 app.include_router(settings.router, prefix="/api/settings", tags=["Settings"])
+app.include_router(llm.router, prefix="/api/llm", tags=["LLM"])
 
 
 @app.get("/", response_class=HTMLResponse)

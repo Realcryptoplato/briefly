@@ -146,8 +146,32 @@ class VectorStore:
         query_embedding = await self._embeddings.generate_embedding(query)
 
         async with get_async_session() as session:
-            # 2. Perform cosine similarity search with filters
-            sql = text("""
+            # 2. Build query dynamically to avoid NULL type inference issues
+            where_clauses = ["cc.embedding IS NOT NULL"]
+            params: dict = {
+                "embedding": str(query_embedding),
+                "limit": limit,
+            }
+
+            if platform is not None:
+                where_clauses.append("ci.platform = :platform")
+                params["platform"] = platform
+
+            if source_id is not None:
+                where_clauses.append("ci.source_id = :source_id")
+                params["source_id"] = source_id
+
+            if since is not None:
+                where_clauses.append("ci.published_at >= :since")
+                params["since"] = since
+
+            if until is not None:
+                where_clauses.append("ci.published_at <= :until")
+                params["until"] = until
+
+            where_sql = " AND ".join(where_clauses)
+
+            sql = text(f"""
                 SELECT
                     ci.id,
                     ci.platform,
@@ -158,29 +182,15 @@ class VectorStore:
                     ci.url,
                     ci.published_at,
                     cc.content as chunk_content,
-                    1 - (cc.embedding <=> :embedding) as similarity
+                    1 - (cc.embedding <=> CAST(:embedding AS vector)) as similarity
                 FROM content_chunks cc
                 JOIN content_items ci ON cc.content_id = ci.id
-                WHERE 1=1
-                    AND (:platform IS NULL OR ci.platform = :platform)
-                    AND (:source_id IS NULL OR ci.source_id = :source_id)
-                    AND (:since IS NULL OR ci.published_at >= :since)
-                    AND (:until IS NULL OR ci.published_at <= :until)
-                ORDER BY cc.embedding <=> :embedding
+                WHERE {where_sql}
+                ORDER BY cc.embedding <=> CAST(:embedding AS vector)
                 LIMIT :limit
             """)
 
-            result = await session.execute(
-                sql,
-                {
-                    "embedding": str(query_embedding),
-                    "platform": platform,
-                    "source_id": source_id,
-                    "since": since,
-                    "until": until,
-                    "limit": limit,
-                },
-            )
+            result = await session.execute(sql, params)
 
             rows = result.fetchall()
 
