@@ -153,6 +153,28 @@ class GrokAdapter(BaseAdapter):
 
         return tool
 
+    async def _verify_no_posts(self, username: str, hours: int) -> dict[str, Any]:
+        """
+        Verify if an account truly has no posts in the given time period.
+
+        When Grok says "no posts", this does a more direct search to confirm.
+        """
+        start_date = datetime.now() - timedelta(hours=hours)
+        prompt = f"""Search X for ANY posts from @{username} since {start_date.strftime('%Y-%m-%d')}.
+List them even if they seem minor or unimportant.
+If there are truly no posts, confirm explicitly with "CONFIRMED: No posts found"."""
+
+        try:
+            result = await self._call_responses_api(
+                prompt=prompt,
+                tools=[self._get_x_search_tool([username], hours)],
+            )
+            has_posts = "confirmed: no posts" not in result.lower()
+            return {"has_posts": has_posts, "verification_result": result}
+        except Exception as e:
+            logger.warning(f"No-post verification failed for @{username}: {e}")
+            return {"has_posts": False, "error": str(e)}
+
     async def summarize_account(
         self,
         username: str,
@@ -175,21 +197,61 @@ class GrokAdapter(BaseAdapter):
         username = username.lstrip("@")
         focus_clause = f" Focus on {focus}." if focus else ""
 
-        prompt = f"""Search X for posts from @{username} in the last {hours} hours and summarize them.{focus_clause}
+        prompt = f"""Search X for posts from @{username} in the last {hours} hours.{focus_clause}
 
-Include:
-1. Main topics/themes they discussed
-2. Key announcements or notable posts
-3. Any viral or highly-engaged posts
-4. Sentiment/tone of their posts
+For each significant topic they discussed, extract:
 
-If they haven't posted in that time period, say so clearly."""
+**KEY ALPHA & TAKEAWAYS** (most important - what's the actual news/insight?)
+For each topic, provide:
+- The specific claim, announcement, or insight (not just "discussed AI")
+- Why it matters / implications
+- Include specific numbers, names, or details when available
+
+Example of GOOD extraction:
+- "Tesla FSD will surpass human safety by Q2 2026" - claims 10x improvement in edge case handling
+- "xAI purchased 380MW of gas turbines from Doosan" - scaling compute infrastructure aggressively
+
+Example of BAD extraction (too vague):
+- "Discussed Tesla and AI progress"
+- "Talked about company growth"
+
+**NOTABLE POSTS** (with engagement stats inline)
+List 2-3 most significant posts with format:
+- [Key quote or summary] (XXK likes, X.XM views) [link if available]
+
+Format your response as:
+
+### @{username}
+
+**KEY ALPHA**
+- [Specific insight] - [brief context/implication]
+- [Another insight] - [why it matters]
+
+**NOTABLE**
+- "[Quote]" (XXK likes, X.XM views) [link]
+- "[Quote]" (XXK likes) [link]
+
+Keep it dense and actionable. No fluff, no separate "engagement highlights" section.
+
+If they haven't posted in that time period, say "No posts found in last {hours}h" - do NOT guess or use old data."""
 
         try:
             summary = await self._call_responses_api(
                 prompt=prompt,
                 tools=[self._get_x_search_tool([username], hours)],
             )
+
+            # Verify if Grok claims "no posts"
+            if "no posts" in summary.lower() or "hasn't posted" in summary.lower():
+                verify_result = await self._verify_no_posts(username, hours)
+                if verify_result.get("has_posts"):
+                    # Re-run with stricter prompt
+                    logger.info(f"Re-running summary for @{username} after verification found posts")
+                    summary = await self._call_responses_api(
+                        prompt=f"Search X for ANY posts from @{username} in the last {hours} hours. "
+                               f"List them with their key points and engagement stats, even if minor.",
+                        tools=[self._get_x_search_tool([username], hours)],
+                    )
 
             return {
                 "username": username,
@@ -227,14 +289,31 @@ If they haven't posted in that time period, say so clearly."""
         accounts_str = ", ".join(f"@{u}" for u in clean_usernames)
         focus_clause = f" Focus on {focus}." if focus else ""
 
-        prompt = f"""Summarize what these X accounts posted in the last {hours} hours: {accounts_str}{focus_clause}
+        prompt = f"""Search X for posts from these accounts in the last {hours} hours: {accounts_str}{focus_clause}
 
-For each account, provide:
-1. Key topics/themes
-2. Notable posts or announcements
-3. Engagement highlights (viral posts, controversies, etc.)
+For EACH account, extract:
 
-If an account hasn't posted, note that. Format with clear headers for each account."""
+## @username
+
+**KEY ALPHA & TAKEAWAYS**
+- [Specific insight/claim] - [why it matters]
+- [Another specific insight] - [implications]
+(Focus on actionable info, not just "discussed topic X")
+
+**NOTABLE POSTS** (2-3 max, with inline stats)
+- "[Quote or summary]" (XXK likes) [link if available]
+
+Example of GOOD extraction:
+- "Tesla FSD will surpass human safety by Q2 2026" - claims 10x improvement in edge case handling
+- "xAI purchased 380MW of gas turbines" - scaling compute infrastructure aggressively
+
+Example of BAD extraction (too vague):
+- "Discussed Tesla and AI progress"
+- "Talked about company growth"
+
+If an account has no posts in this period, state "No posts in last {hours}h" - do not fabricate.
+
+Keep each account summary dense and actionable. No separate "engagement highlights" section - stats go inline with notable posts."""
 
         try:
             content = await self._call_responses_api(
@@ -311,6 +390,66 @@ Provide:
                 "summary": f"Failed to search topic: {e}",
                 "error": str(e),
             }
+
+    async def search_accounts(
+        self,
+        query: str,
+        limit: int = 10,
+    ) -> list[dict[str, Any]]:
+        """
+        Search for X accounts matching a query.
+
+        Uses Grok's x_search tool to find relevant accounts.
+
+        Args:
+            query: Search query (e.g., "AI researchers", "crypto influencers")
+            limit: Maximum number of accounts to return (default 10)
+
+        Returns:
+            List of account dicts with username, name, bio, followers, verified
+        """
+        prompt = f"""Search X for accounts matching "{query}".
+Return up to {limit} accounts as a JSON array with fields:
+- username (without @)
+- name (display name)
+- bio (short description, max 100 chars)
+- approximate_followers (e.g., "1.2M", "50K", "10K")
+- verified (true/false)
+
+Return ONLY a valid JSON array, no other text. Example format:
+[
+  {{"username": "elonmusk", "name": "Elon Musk", "bio": "CEO of Tesla, SpaceX, xAI", "approximate_followers": "200M", "verified": true}},
+  {{"username": "sama", "name": "Sam Altman", "bio": "CEO of OpenAI", "approximate_followers": "3.5M", "verified": true}}
+]
+
+Focus on influential accounts with significant followings that are relevant to "{query}"."""
+
+        try:
+            result = await self._call_responses_api(
+                prompt=prompt,
+                tools=[self._get_x_search_tool(None, 24)],  # No handle filter for discovery
+            )
+
+            # Parse JSON from response
+            import json
+            import re
+
+            # Try to extract JSON array from response
+            json_match = re.search(r'\[[\s\S]*\]', result)
+            if json_match:
+                try:
+                    accounts = json.loads(json_match.group())
+                    return accounts[:limit]
+                except json.JSONDecodeError:
+                    logger.warning(f"Failed to parse JSON from Grok response: {result[:200]}")
+
+            # Fallback: return empty list if JSON parsing fails
+            logger.warning(f"Could not extract account list from Grok response")
+            return []
+
+        except Exception as e:
+            logger.error(f"Grok account search failed for '{query}': {e}")
+            return []
 
     async def fetch_content(
         self,

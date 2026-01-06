@@ -263,6 +263,86 @@ class YouTubeAdapter(BaseAdapter):
 
         return imported
 
+    async def search_channels(self, query: str, limit: int = 10) -> list[dict]:
+        """
+        Search for YouTube channels matching a query.
+
+        Args:
+            query: Search query (e.g., "tech reviews", "AI tutorials")
+            limit: Maximum number of channels to return (default 10)
+
+        Returns:
+            List of channel dicts with channel_id, name, description, subscribers, thumbnail
+        """
+        if not self._youtube:
+            logger.error("YouTube API not configured")
+            return []
+
+        try:
+            # Search for channels
+            search_response = self._youtube.search().list(
+                part='snippet',
+                q=query,
+                type='channel',
+                maxResults=min(limit, 25),  # API max is 50, but we cap lower
+                order='relevance',
+            ).execute()
+
+            channels = []
+            channel_ids = []
+
+            # Collect channel IDs for batch statistics lookup
+            for item in search_response.get('items', []):
+                channel_ids.append(item['snippet']['channelId'])
+
+            # Batch fetch channel statistics (more efficient)
+            if channel_ids:
+                stats_response = self._youtube.channels().list(
+                    part='statistics,snippet',
+                    id=','.join(channel_ids),
+                ).execute()
+
+                # Build lookup dict
+                stats_lookup = {
+                    ch['id']: ch for ch in stats_response.get('items', [])
+                }
+
+                for item in search_response.get('items', []):
+                    channel_id = item['snippet']['channelId']
+                    snippet = item['snippet']
+                    stats_item = stats_lookup.get(channel_id, {})
+                    statistics = stats_item.get('statistics', {})
+
+                    # Format subscriber count
+                    sub_count = int(statistics.get('subscriberCount', 0))
+                    if sub_count >= 1_000_000:
+                        subscribers = f"{sub_count / 1_000_000:.1f}M"
+                    elif sub_count >= 1_000:
+                        subscribers = f"{sub_count / 1_000:.0f}K"
+                    else:
+                        subscribers = str(sub_count)
+
+                    channels.append({
+                        'channel_id': channel_id,
+                        'name': snippet['title'],
+                        'description': snippet.get('description', '')[:200],
+                        'subscribers': subscribers,
+                        'subscriber_count': sub_count,
+                        'thumbnail': snippet.get('thumbnails', {}).get('medium', {}).get('url')
+                            or snippet.get('thumbnails', {}).get('default', {}).get('url'),
+                        'handle': stats_item.get('snippet', {}).get('customUrl', ''),
+                    })
+
+            logger.info(f"Found {len(channels)} YouTube channels for query '{query}'")
+            return channels[:limit]
+
+        except HttpError as e:
+            logger.error(f"YouTube API error searching channels: {e}")
+            return []
+        except Exception as e:
+            logger.error(f"Error searching YouTube channels: {e}")
+            return []
+
     async def fetch_content(
         self,
         identifiers: list[str],

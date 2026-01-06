@@ -33,7 +33,8 @@
                     <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
                         <span class="text-2xl">𝕏</span> X Accounts
                         <span class="text-sm text-gray-500 font-normal">(<span x-text="sources.x?.length || 0"></span>)</span>
-                        <span class="ml-auto text-xs text-cyan-400">via Grok</span>
+                        <button @click="openSearch('x')" class="ml-auto text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded">🔍 Search</button>
+                        <span class="text-xs text-cyan-400">via Grok</span>
                     </h2>
 
                     <form @submit.prevent="addXSource" class="mb-4">
@@ -73,7 +74,8 @@
                     <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
                         <span class="text-2xl text-red-500">▶</span> YouTube
                         <span class="text-sm text-gray-500 font-normal">(<span x-text="sources.youtube?.length || 0"></span>)</span>
-                        <span class="ml-auto text-xs text-cyan-400">via Gemini</span>
+                        <button @click="openSearch('youtube')" class="ml-auto text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded">🔍 Search</button>
+                        <span class="text-xs text-cyan-400">via Gemini</span>
                     </h2>
 
                     <form @submit.prevent="addYTSource" class="mb-4">
@@ -109,7 +111,8 @@
                     <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
                         <span class="text-2xl">🎙️</span> Podcasts
                         <span class="text-sm text-gray-500 font-normal">(<span x-text="sources.podcasts?.length || 0"></span>)</span>
-                        <span class="ml-auto text-xs text-cyan-400">via Gemini</span>
+                        <button @click="openSearch('podcasts')" class="ml-auto text-xs bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded">🔍 Search</button>
+                        <span class="text-xs text-cyan-400">via Gemini</span>
                     </h2>
 
                     <form @submit.prevent="addPodcast" class="mb-4">
@@ -398,6 +401,124 @@
             </div>
         </div>
 
+        <!-- Search Modal -->
+        <div x-show="showSearchModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/70" @click.self="showSearchModal = false">
+            <div class="bg-gray-800 rounded-lg w-full max-w-lg mx-4 p-6" @click.stop>
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold">Search Sources</h3>
+                    <button @click="showSearchModal = false" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+                </div>
+
+                <!-- Platform tabs -->
+                <div class="flex gap-2 mb-4">
+                    <button @click="searchPlatform = 'x'; searchQuery = ''; searchResults = []"
+                            :class="searchPlatform === 'x' ? 'bg-cyan-600' : 'bg-gray-700'"
+                            class="px-4 py-2 rounded text-sm font-medium transition-colors">
+                        𝕏 X Accounts
+                    </button>
+                    <button @click="searchPlatform = 'youtube'; searchQuery = ''; searchResults = []"
+                            :class="searchPlatform === 'youtube' ? 'bg-red-600' : 'bg-gray-700'"
+                            class="px-4 py-2 rounded text-sm font-medium transition-colors">
+                        ▶ YouTube
+                    </button>
+                    <button @click="searchPlatform = 'podcasts'; searchQuery = ''; searchResults = []"
+                            :class="searchPlatform === 'podcasts' ? 'bg-purple-600' : 'bg-gray-700'"
+                            class="px-4 py-2 rounded text-sm font-medium transition-colors">
+                        🎙️ Podcasts
+                    </button>
+                </div>
+
+                <!-- Search input with debounce -->
+                <div class="relative mb-4">
+                    <input type="text"
+                           x-model="searchQuery"
+                           @input.debounce.300ms="performSearch()"
+                           :placeholder="searchPlatform === 'x' ? 'Search X accounts (e.g., AI researchers)' : searchPlatform === 'youtube' ? 'Search YouTube channels (e.g., tech reviews)' : 'Search podcasts (e.g., AI podcasts)'"
+                           class="w-full bg-gray-700 border border-gray-600 rounded px-4 py-3 text-sm focus:outline-none focus:border-cyan-500">
+                    <div x-show="searchLoading" class="absolute right-3 top-3">
+                        <div class="w-5 h-5 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                </div>
+
+                <!-- Error message -->
+                <div x-show="searchError" class="mb-4 p-3 bg-red-900/30 rounded text-red-300 text-sm" x-text="searchError"></div>
+
+                <!-- Results list -->
+                <div class="max-h-80 overflow-y-auto space-y-2">
+                    <!-- X Account Results -->
+                    <template x-if="searchPlatform === 'x'">
+                        <template x-for="result in searchResults" :key="result.username">
+                            <div class="flex items-center justify-between p-3 bg-gray-700 rounded hover:bg-gray-600 cursor-pointer transition-colors"
+                                 @click="addFromSearch(result)">
+                                <div class="flex-1 min-w-0 mr-3">
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-medium">@<span x-text="result.username"></span></span>
+                                        <span x-show="result.verified" class="text-cyan-400 text-xs">✓</span>
+                                        <span class="text-xs text-gray-400" x-text="result.approximate_followers + ' followers'"></span>
+                                    </div>
+                                    <div class="text-sm text-gray-400 truncate" x-text="result.name"></div>
+                                    <div class="text-xs text-gray-500 truncate" x-text="result.bio"></div>
+                                </div>
+                                <button class="text-cyan-400 hover:text-cyan-300 text-sm font-medium flex-shrink-0">+ Add</button>
+                            </div>
+                        </template>
+                    </template>
+
+                    <!-- YouTube Channel Results -->
+                    <template x-if="searchPlatform === 'youtube'">
+                        <template x-for="result in searchResults" :key="result.channel_id">
+                            <div class="flex items-center justify-between p-3 bg-gray-700 rounded hover:bg-gray-600 cursor-pointer transition-colors"
+                                 @click="addFromSearch(result)">
+                                <div class="flex items-center gap-3 flex-1 min-w-0 mr-3">
+                                    <img x-show="result.thumbnail" :src="result.thumbnail" class="w-10 h-10 rounded-full object-cover flex-shrink-0">
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center gap-2">
+                                            <span class="font-medium truncate" x-text="result.name"></span>
+                                            <span class="text-xs text-gray-400" x-text="result.subscribers + ' subs'"></span>
+                                        </div>
+                                        <div class="text-xs text-gray-500 truncate" x-text="result.description"></div>
+                                    </div>
+                                </div>
+                                <button class="text-red-400 hover:text-red-300 text-sm font-medium flex-shrink-0">+ Add</button>
+                            </div>
+                        </template>
+                    </template>
+
+                    <!-- Podcast Results -->
+                    <template x-if="searchPlatform === 'podcasts'">
+                        <template x-for="result in searchResults" :key="result.feed_url">
+                            <div class="flex items-center justify-between p-3 bg-gray-700 rounded hover:bg-gray-600 cursor-pointer transition-colors"
+                                 @click="addFromSearch(result)">
+                                <div class="flex items-center gap-3 flex-1 min-w-0 mr-3">
+                                    <img x-show="result.artwork" :src="result.artwork" class="w-10 h-10 rounded object-cover flex-shrink-0">
+                                    <div class="flex-1 min-w-0">
+                                        <div class="font-medium truncate" x-text="result.name"></div>
+                                        <div class="text-sm text-purple-400 truncate" x-text="result.author"></div>
+                                        <div class="text-xs text-gray-500" x-text="(result.episode_count || 0) + ' episodes'"></div>
+                                    </div>
+                                </div>
+                                <button class="text-purple-400 hover:text-purple-300 text-sm font-medium flex-shrink-0">+ Add</button>
+                            </div>
+                        </template>
+                    </template>
+
+                    <!-- Empty state -->
+                    <div x-show="searchQuery && !searchLoading && searchResults.length === 0 && !searchError" class="text-center py-8 text-gray-500">
+                        <p>No results found for "<span x-text="searchQuery"></span>"</p>
+                        <p class="text-sm mt-1">Try a different search term</p>
+                    </div>
+
+                    <!-- Initial state -->
+                    <div x-show="!searchQuery && !searchLoading && searchResults.length === 0" class="text-center py-8 text-gray-500">
+                        <p x-show="searchPlatform === 'x'">Search for X accounts to follow</p>
+                        <p x-show="searchPlatform === 'youtube'">Search for YouTube channels</p>
+                        <p x-show="searchPlatform === 'podcasts'">Search for podcasts</p>
+                        <p class="text-sm mt-1">Results will appear as you type</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Expanded Content Modal -->
         <div x-show="expandedContent" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/70" @click.self="expandedContent = null">
             <div class="bg-gray-800 rounded-lg w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto p-6">
@@ -480,6 +601,14 @@
 
                 // Modal
                 expandedContent: null,
+
+                // Search modal
+                showSearchModal: false,
+                searchPlatform: 'x',
+                searchQuery: '',
+                searchResults: [],
+                searchLoading: false,
+                searchError: '',
 
                 // API status
                 apiStatus: { grok: false, gemini: false },
@@ -823,6 +952,103 @@
                             if (match.startsWith('<')) return match;
                             return match;
                         });
+                },
+
+                // Search modal methods
+                openSearch(platform) {
+                    this.searchPlatform = platform;
+                    this.searchQuery = '';
+                    this.searchResults = [];
+                    this.searchError = '';
+                    this.showSearchModal = true;
+                },
+
+                async performSearch() {
+                    if (!this.searchQuery.trim() || this.searchQuery.trim().length < 2) {
+                        this.searchResults = [];
+                        return;
+                    }
+
+                    this.searchLoading = true;
+                    this.searchError = '';
+
+                    try {
+                        const endpoint = `/api/search/sources/${this.searchPlatform}?q=${encodeURIComponent(this.searchQuery.trim())}&limit=10`;
+                        const resp = await fetch(endpoint);
+
+                        if (!resp.ok) {
+                            const err = await resp.json();
+                            this.searchError = err.detail || 'Search failed';
+                            this.searchResults = [];
+                        } else {
+                            const data = await resp.json();
+                            this.searchResults = data.results || [];
+                        }
+                    } catch (e) {
+                        this.searchError = 'Network error: ' + e.message;
+                        this.searchResults = [];
+                    } finally {
+                        this.searchLoading = false;
+                    }
+                },
+
+                async addFromSearch(result) {
+                    this.loading = true;
+
+                    try {
+                        let resp;
+
+                        if (this.searchPlatform === 'x') {
+                            // Add X account
+                            resp = await fetch('/api/sources', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    platform: 'x',
+                                    identifier: result.username
+                                })
+                            });
+                        } else if (this.searchPlatform === 'youtube') {
+                            // Add YouTube channel
+                            resp = await fetch('/api/sources', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    platform: 'youtube',
+                                    identifier: result.handle || result.channel_id
+                                })
+                            });
+                        } else if (this.searchPlatform === 'podcasts') {
+                            // Add podcast
+                            resp = await fetch('/api/sources/podcasts', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    name: result.name,
+                                    feed_url: result.feed_url
+                                })
+                            });
+                        }
+
+                        if (!resp.ok) {
+                            const err = await resp.json();
+                            this.searchError = err.detail || 'Failed to add source';
+                        } else {
+                            // Success - remove from results and reload sources
+                            if (this.searchPlatform === 'x') {
+                                this.searchResults = this.searchResults.filter(r => r.username !== result.username);
+                            } else if (this.searchPlatform === 'youtube') {
+                                this.searchResults = this.searchResults.filter(r => r.channel_id !== result.channel_id);
+                            } else {
+                                this.searchResults = this.searchResults.filter(r => r.feed_url !== result.feed_url);
+                            }
+                            await this.loadSources();
+                        }
+                    } catch (e) {
+                        this.searchError = 'Network error: ' + e.message;
+                    } finally {
+                        this.loading = false;
+                    }
                 }
             };
         }
