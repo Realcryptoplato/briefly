@@ -70,6 +70,7 @@ async def list_sources() -> dict:
     result = {
         "x": [],
         "youtube": [],
+        "podcasts": [],
         "x_list_id": sources.get("x_list_id"),
         "x_list_last_sync": sources.get("x_list_last_sync"),
     }
@@ -103,6 +104,20 @@ async def list_sources() -> dict:
             "name": cached_channel.get("name") if cached_channel else channel,
             "channel_id": cached_channel.get("id") if cached_channel else channel,
             "cached": cached_channel is not None,
+        })
+
+    # Podcast sources
+    for podcast in sources.get("podcasts", []):
+        result["podcasts"].append({
+            "name": podcast.get("name"),
+            "feed_url": podcast.get("feed_url"),
+            "author": podcast.get("author"),
+            "artwork": podcast.get("artwork") or podcast.get("image_url"),  # handle both formats
+            "episode_count": podcast.get("episode_count"),
+            "description": podcast.get("description"),
+            "added_at": podcast.get("added_at"),
+            "status": podcast.get("status", "ready"),  # ready, processing, error
+            "last_episode": podcast.get("last_episode"),
         })
 
     return result
@@ -259,6 +274,10 @@ class ImportYouTubeRequest(BaseModel):
 class AddPodcastRequest(BaseModel):
     name: str
     feed_url: str
+    author: str | None = None
+    artwork: str | None = None
+    episode_count: int | None = None
+    description: str | None = None
 
 
 @router.post("/podcasts")
@@ -269,20 +288,28 @@ async def add_podcast(req: AddPodcastRequest) -> dict:
     if "podcasts" not in sources:
         sources["podcasts"] = []
 
-    # Check if already exists
+    # Check if already exists by feed_url (more reliable than name)
     for p in sources["podcasts"]:
+        if p.get("feed_url") == req.feed_url:
+            raise HTTPException(400, f"Podcast with this feed already exists")
         if p.get("name") == req.name:
             raise HTTPException(400, f"Podcast '{req.name}' already exists")
 
     from datetime import datetime as dt
-    sources["podcasts"].append({
+    podcast_entry = {
         "name": req.name,
         "feed_url": req.feed_url,
+        "author": req.author,
+        "artwork": req.artwork,
+        "episode_count": req.episode_count,
+        "description": req.description,
         "added_at": dt.now().isoformat(),
-    })
+        "status": "ready",
+    }
+    sources["podcasts"].append(podcast_entry)
     _save_sources(sources)
 
-    return {"status": "added", "podcast": {"name": req.name, "feed_url": req.feed_url}}
+    return {"status": "added", "podcast": podcast_entry}
 
 
 @router.delete("/podcasts/{name}")

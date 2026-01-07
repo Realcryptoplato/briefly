@@ -119,3 +119,95 @@ def get_user_cache() -> XUserCache:
     if _user_cache is None:
         _user_cache = XUserCache()
     return _user_cache
+
+
+# --- Content Summary Cache ---
+# Caches processed podcast episodes and YouTube video summaries
+
+CONTENT_CACHE_FILE = CACHE_DIR / "content_summaries.json"
+
+
+class ContentSummaryCache:
+    """
+    Cache for processed content summaries (podcasts, videos).
+
+    Avoids re-processing expensive content like long podcasts.
+    Content is cached by URL with a configurable TTL.
+    """
+
+    def __init__(self, ttl_hours: int = 168):  # 1 week default
+        self._cache = _load_cache(CONTENT_CACHE_FILE)
+        self._ttl = timedelta(hours=ttl_hours)
+
+    def get(self, url: str) -> dict[str, Any] | None:
+        """Get cached summary by content URL."""
+        entry = self._cache.get(url)
+        if entry:
+            # Check if expired
+            cached_at = datetime.fromisoformat(entry.get("cached_at", "2000-01-01"))
+            if datetime.now() - cached_at < self._ttl:
+                logger.debug(f"Content cache hit for {url[:50]}...")
+                return entry.get("data")
+            else:
+                logger.debug(f"Content cache expired for {url[:50]}...")
+        return None
+
+    def set(self, url: str, data: dict[str, Any], content_type: str = "podcast"):
+        """Cache a content summary."""
+        self._cache[url] = {
+            "data": data,
+            "content_type": content_type,
+            "cached_at": datetime.now().isoformat(),
+        }
+        self._save()
+        logger.info(f"Cached {content_type} summary for {url[:50]}...")
+
+    def get_recent_urls(self, content_type: str | None = None, hours: int = 24) -> list[str]:
+        """Get URLs of recently cached content."""
+        cutoff = datetime.now() - timedelta(hours=hours)
+        urls = []
+        for url, entry in self._cache.items():
+            if content_type and entry.get("content_type") != content_type:
+                continue
+            cached_at = datetime.fromisoformat(entry.get("cached_at", "2000-01-01"))
+            if cached_at > cutoff:
+                urls.append(url)
+        return urls
+
+    def _save(self):
+        """Persist cache to disk."""
+        _save_cache(CONTENT_CACHE_FILE, self._cache)
+
+    def clear(self, older_than_hours: int | None = None):
+        """Clear cache, optionally only entries older than specified hours."""
+        if older_than_hours:
+            cutoff = datetime.now() - timedelta(hours=older_than_hours)
+            self._cache = {
+                url: entry for url, entry in self._cache.items()
+                if datetime.fromisoformat(entry.get("cached_at", "2000-01-01")) > cutoff
+            }
+        else:
+            self._cache = {}
+        self._save()
+
+    def stats(self) -> dict[str, int]:
+        """Get cache statistics."""
+        podcast_count = sum(1 for e in self._cache.values() if e.get("content_type") == "podcast")
+        video_count = sum(1 for e in self._cache.values() if e.get("content_type") == "video")
+        return {
+            "total": len(self._cache),
+            "podcasts": podcast_count,
+            "videos": video_count,
+        }
+
+
+# Singleton
+_content_cache: ContentSummaryCache | None = None
+
+
+def get_content_cache() -> ContentSummaryCache:
+    """Get the content summary cache singleton."""
+    global _content_cache
+    if _content_cache is None:
+        _content_cache = ContentSummaryCache()
+    return _content_cache

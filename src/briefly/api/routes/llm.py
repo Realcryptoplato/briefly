@@ -174,9 +174,15 @@ async def gemini_summarize_audio(req: GeminiAudioRequest) -> dict:
 
 # --- Simplified Briefing Endpoints ---
 
+class PodcastSource(BaseModel):
+    name: str
+    feed_url: str
+
+
 class SimpleBriefingRequest(BaseModel):
     x_sources: list[str] | None = None
     youtube_sources: list[str] | None = None
+    podcast_sources: list[PodcastSource] | None = None
     hours_back: int = 24
     focus: str | None = None
 
@@ -192,18 +198,24 @@ async def generate_simple_briefing(req: SimpleBriefingRequest) -> dict:
     """
     Generate a briefing using the simplified LLM-native approach.
 
-    Uses Grok for X content and Gemini for YouTube.
+    Uses Grok for X content, Gemini for YouTube and podcasts.
     Much faster than the traditional API-based approach.
     """
     from briefly.services.simple_curation import get_simple_curation
 
-    if not req.x_sources and not req.youtube_sources:
+    if not req.x_sources and not req.youtube_sources and not req.podcast_sources:
         raise HTTPException(400, "At least one source type required")
+
+    # Convert podcast sources to dicts for the service
+    podcast_dicts = None
+    if req.podcast_sources:
+        podcast_dicts = [{"name": p.name, "feed_url": p.feed_url} for p in req.podcast_sources]
 
     service = get_simple_curation()
     result = await service.create_briefing(
         x_sources=req.x_sources,
         youtube_sources=req.youtube_sources,
+        podcast_sources=podcast_dicts,
         hours_back=req.hours_back,
         focus=req.focus,
     )
@@ -266,4 +278,36 @@ async def test_gemini() -> dict:
     return {
         "status": "ok" if "error" not in result else "error",
         "result": result,
+    }
+
+
+@router.get("/cache/stats")
+async def get_cache_stats() -> dict:
+    """
+    Get content cache statistics.
+
+    Shows how many podcasts/videos are cached to avoid re-processing.
+    """
+    from briefly.core.cache import get_content_cache
+    cache = get_content_cache()
+    return {
+        "status": "ok",
+        "stats": cache.stats(),
+        "message": "Content summaries cached to avoid re-processing expensive content like podcasts.",
+    }
+
+
+@router.delete("/cache/clear")
+async def clear_cache(older_than_hours: int | None = None) -> dict:
+    """
+    Clear the content cache.
+
+    Optionally only clear entries older than specified hours.
+    """
+    from briefly.core.cache import get_content_cache
+    cache = get_content_cache()
+    cache.clear(older_than_hours)
+    return {
+        "status": "cleared",
+        "older_than_hours": older_than_hours,
     }

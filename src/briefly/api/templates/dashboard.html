@@ -52,14 +52,26 @@
                         <p x-show="xError" x-text="xError" class="text-red-400 text-sm mt-2"></p>
                     </form>
 
-                    <div class="space-y-2 max-h-48 overflow-y-auto">
-                        <template x-for="source in sources.x" :key="source">
-                            <div class="flex items-center justify-between bg-gray-700 rounded px-3 py-2 text-sm">
-                                <span class="font-medium">@<span x-text="source"></span></span>
-                                <button @click="removeSource('x', source)" class="text-red-400 hover:text-red-300">✕</button>
+                    <div class="space-y-2 max-h-64 overflow-y-auto">
+                        <template x-for="source in sources.x" :key="source.identifier">
+                            <div class="flex items-center gap-3 bg-gray-700 rounded px-3 py-2 text-sm group hover:bg-gray-650 transition-colors">
+                                <!-- X avatar placeholder -->
+                                <div class="w-8 h-8 rounded-full flex-shrink-0 bg-cyan-900/30 flex items-center justify-center text-cyan-400 text-xs font-bold" x-text="(source.name || source.identifier || '?').charAt(0).toUpperCase()"></div>
+
+                                <!-- Account info -->
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-medium">@<span x-text="source.identifier"></span></span>
+                                        <span x-show="source.cached" class="text-xs text-green-400">✓</span>
+                                    </div>
+                                    <div x-show="source.name" class="text-xs text-gray-400 truncate" x-text="source.name"></div>
+                                </div>
+
+                                <!-- Remove button -->
+                                <button @click.stop="removeSource('x', source.identifier)" class="text-red-400 hover:text-red-300 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">✕</button>
                             </div>
                         </template>
-                        <p x-show="!sources.x?.length" class="text-gray-500 text-sm">No X accounts yet</p>
+                        <p x-show="!sources.x?.length" class="text-gray-500 text-sm text-center py-4">No X accounts yet. Use search to find accounts.</p>
                     </div>
 
                     <!-- Quick Test -->
@@ -93,16 +105,23 @@
                         <p x-show="ytError" x-text="ytError" class="text-red-400 text-sm mt-2"></p>
                     </form>
 
-                    <div class="space-y-2 max-h-48 overflow-y-auto">
+                    <div class="space-y-2 max-h-64 overflow-y-auto">
                         <template x-for="source in sources.youtube" :key="source.identifier || source">
-                            <div class="flex items-center justify-between bg-gray-700 rounded px-3 py-2 text-sm">
-                                <div class="truncate flex-1 mr-2">
-                                    <span class="font-medium" x-text="source.name || source.identifier || source"></span>
+                            <div class="flex items-center gap-3 bg-gray-700 rounded px-3 py-2 text-sm group hover:bg-gray-650 transition-colors">
+                                <!-- YouTube avatar placeholder -->
+                                <div class="w-8 h-8 rounded-full flex-shrink-0 bg-red-900/30 flex items-center justify-center text-red-400 text-lg">▶</div>
+
+                                <!-- Channel info -->
+                                <div class="flex-1 min-w-0">
+                                    <div class="font-medium truncate" x-text="source.name || source.identifier || source"></div>
+                                    <div x-show="source.channel_id && source.name" class="text-xs text-gray-500 truncate" x-text="source.channel_id"></div>
                                 </div>
-                                <button @click="removeSource('youtube', source.identifier || source)" class="text-red-400 hover:text-red-300 flex-shrink-0">✕</button>
+
+                                <!-- Remove button -->
+                                <button @click.stop="removeSource('youtube', source.identifier || source)" class="text-red-400 hover:text-red-300 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">✕</button>
                             </div>
                         </template>
-                        <p x-show="!sources.youtube?.length" class="text-gray-500 text-sm">No YouTube channels yet</p>
+                        <p x-show="!sources.youtube?.length" class="text-gray-500 text-sm text-center py-4">No YouTube channels yet. Use search to find channels.</p>
                     </div>
                 </div>
 
@@ -136,17 +155,30 @@
                         <p x-show="podcastError" x-text="podcastError" class="text-red-400 text-sm mt-2"></p>
                     </form>
 
-                    <div class="space-y-2 max-h-48 overflow-y-auto">
+                    <div class="space-y-2 max-h-64 overflow-y-auto">
                         <template x-for="podcast in sources.podcasts" :key="podcast.name">
-                            <div class="flex items-center justify-between bg-gray-700 rounded px-3 py-2 text-sm">
-                                <div class="truncate flex-1 mr-2">
-                                    <span class="font-medium" x-text="podcast.name"></span>
-                                    <span class="text-xs text-gray-500 block truncate" x-text="podcast.feed_url || podcast.audio_url"></span>
+                            <div class="flex items-center gap-3 bg-gray-700 rounded px-3 py-2 text-sm group hover:bg-gray-650 transition-colors">
+                                <!-- Podcast artwork -->
+                                <img x-show="podcast.artwork" :src="podcast.artwork" class="w-10 h-10 rounded flex-shrink-0 object-cover">
+                                <div x-show="!podcast.artwork" class="w-10 h-10 rounded flex-shrink-0 bg-purple-900/30 flex items-center justify-center text-purple-400">🎙️</div>
+
+                                <!-- Podcast info -->
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-medium truncate" x-text="podcast.name"></span>
+                                        <!-- Status indicator -->
+                                        <span x-show="podcast.status === 'processing'" class="text-xs px-1.5 py-0.5 rounded bg-yellow-900/50 text-yellow-400">Processing</span>
+                                        <span x-show="podcast.status === 'error'" class="text-xs px-1.5 py-0.5 rounded bg-red-900/50 text-red-400">Error</span>
+                                    </div>
+                                    <div class="text-xs text-purple-400 truncate" x-text="podcast.author || 'Unknown author'"></div>
+                                    <div class="text-xs text-gray-500" x-text="podcast.episode_count ? podcast.episode_count + ' episodes' : ''"></div>
                                 </div>
-                                <button @click="removePodcast(podcast.name)" class="text-red-400 hover:text-red-300 flex-shrink-0">✕</button>
+
+                                <!-- Remove button -->
+                                <button @click.stop="removePodcast(podcast.name)" class="text-red-400 hover:text-red-300 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">✕</button>
                             </div>
                         </template>
-                        <p x-show="!sources.podcasts?.length" class="text-gray-500 text-sm">No podcasts yet</p>
+                        <p x-show="!sources.podcasts?.length" class="text-gray-500 text-sm text-center py-4">No podcasts yet. Use search to find and add podcasts.</p>
                     </div>
 
                     <!-- Test Audio URL -->
@@ -884,9 +916,22 @@
                             focus: this.briefingFocus || null
                         };
 
-                        if (hasX) requestBody.x_sources = this.sources.x;
-                        if (hasYT) requestBody.youtube_sources = this.sources.youtube.map(s => s.identifier || s);
-                        // Podcasts would need URLs - for now skip
+                        // X sources - extract identifiers from objects
+                        if (hasX) {
+                            requestBody.x_sources = this.sources.x.map(s => s.identifier || s);
+                        }
+
+                        // YouTube sources - extract identifiers
+                        if (hasYT) {
+                            requestBody.youtube_sources = this.sources.youtube.map(s => s.identifier || s);
+                        }
+
+                        // Podcast sources - include feed URLs
+                        if (hasPodcasts) {
+                            requestBody.podcast_sources = this.sources.podcasts
+                                .filter(p => p.feed_url)
+                                .map(p => ({ name: p.name, feed_url: p.feed_url }));
+                        }
 
                         // Update progress
                         if (hasX) {
@@ -1019,13 +1064,17 @@
                                 })
                             });
                         } else if (this.searchPlatform === 'podcasts') {
-                            // Add podcast
+                            // Add podcast with all metadata
                             resp = await fetch('/api/sources/podcasts', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
                                     name: result.name,
-                                    feed_url: result.feed_url
+                                    feed_url: result.feed_url,
+                                    author: result.author,
+                                    artwork: result.artwork,
+                                    episode_count: result.episode_count,
+                                    description: result.description
                                 })
                             });
                         }
